@@ -12,13 +12,13 @@ Two defects, both silent:
 """
 from pathlib import Path
 
-path = Path('/root/build/mu-silicium/build_uefi.py')
+path = Path('<BUILD>/mu-silicium/build_uefi.py')
 source = path.read_text()
 
-if 'build_uefi.py.orig' not in source and Path('/root/build/mu-silicium/build_uefi.py.orig').exists():
+if 'build_uefi.py.orig' not in source and Path('<BUILD>/mu-silicium/build_uefi.py.orig').exists():
     pass
-if not Path('/root/build/mu-silicium/build_uefi.py.orig').exists():
-    Path('/root/build/mu-silicium/build_uefi.py.orig').write_text(source)
+if not Path('<BUILD>/mu-silicium/build_uefi.py.orig').exists():
+    Path('<BUILD>/mu-silicium/build_uefi.py.orig').write_text(source)
 
 old_map = '''        "tags_offset":    "--tags_offset"
     }'''

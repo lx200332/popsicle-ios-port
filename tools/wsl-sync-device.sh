@@ -4,7 +4,7 @@
 # Run from WINDOWS bash (ops_bash), not inside WSL. Two problems are solved here:
 #
 #   1. `/mnt/c` only exists inside WSL, so this cannot cp directly.
-#   2. The workspace path contains non-ASCII characters (C:\dsh-对话), and passing those through
+#   2. The workspace path contains non-ASCII characters (C:\<WORKSPACE>), and passing those through
 #      wsl.exe mangles them into $'\345\257\271\350\257\235' escapes. Staging through an ASCII-only
 #      directory keeps every path WSL sees plain ASCII.
 #
@@ -12,10 +12,10 @@
 # so the device repo is never confused with a build artifact.
 set -e
 
-SRC_WIN='C:\dsh-对话\popsicle-port\UniXNU-popsicle'
-STAGE_WIN='C:\dsh-tools\cache\popsicle-sync'
-STAGE_WSL='/mnt/c/dsh-tools/cache/popsicle-sync'
-DST_WSL='/root/build/UniXNU-popsicle'
+SRC_WIN='<WORKSPACE>\popsicle-port\UniXNU-popsicle'
+STAGE_WIN='<TOOLS>\cache\popsicle-sync'
+STAGE_WSL='/mnt<TOOLS>/cache/popsicle-sync'
+DST_WSL='<BUILD>/UniXNU-popsicle'
 
 rm -rf "$STAGE_WIN"
 mkdir -p "$STAGE_WIN"

@@ -1,7 +1,7 @@
 // Inspect the decoded imagefv_a volume: locate _FVH headers and FFS file headers.
 import fs from 'node:fs';
 
-const p = 'C:\\dsh-对话\\popsicle-port\\fw\\dec\\imagefv_a_fv0.dec';
+const p = 'C:\\<WORKSPACE>\\popsicle-port\\fw\\dec\\imagefv_a_fv0.dec';
 const d = fs.readFileSync(p);
 console.log('file bytes:', d.length, '(0x' + d.length.toString(16) + ')');
 

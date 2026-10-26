@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 
 const PANEL = 'qcom,mdss_dsi_p2_42_0d_0b_mp_prim_dsc_cmd';
-const d = fs.readFileSync('C:\\dsh-对话\\popsicle-port\\dts\\popsicle_merged.dtb');
+const d = fs.readFileSync('C:\\<WORKSPACE>\\popsicle-port\\dts\\popsicle_merged.dtb');
 const be32 = o => d.readUInt32BE(o);
 const offStruct = be32(8), offStrings = be32(12);
 

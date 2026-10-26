@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-cd /root/build/mu-silicium || exit 1
+cd <BUILD>/mu-silicium || exit 1
 echo "=== python ==="
 python3 --version
 which python3

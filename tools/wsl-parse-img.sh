@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /root/build/mu-silicium || exit 1
+cd <BUILD>/mu-silicium || exit 1
 IMG=Mu-popsicle.img
 echo "=== file header (Android boot v4) ==="
 xxd -l 16 "$IMG"

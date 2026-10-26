@@ -1,6 +1,6 @@
 #!/bin/bash
-cd /root/build/mu-silicium || exit 1
-export UNIXNU_UEFI=/root/build/mu-silicium
+cd <BUILD>/mu-silicium || exit 1
+export UNIXNU_UEFI=<BUILD>/mu-silicium
 echo "=== check.json display fields ==="
 python3 -c "
 import json
@@ -10,15 +10,15 @@ for k in ('descriptors','source_reservations','display_reserved','splash_region'
 "
 echo
 echo "=== board.toml dtb_node / commented lines ==="
-grep -n "dtb_node" /root/build/UniXNU-popsicle/board.toml || echo "(none)"
+grep -n "dtb_node" <BUILD>/UniXNU-popsicle/board.toml || echo "(none)"
 echo
 echo "=== bootimg ==="
-cd /root/build/unixnu || exit 1
-python3 unixnu bootimg -D /root/build/UniXNU-popsicle --uefi /root/build/mu-silicium 2>&1 | tail -5
+cd <BUILD>/unixnu || exit 1
+python3 unixnu bootimg -D <BUILD>/UniXNU-popsicle --uefi <BUILD>/mu-silicium 2>&1 | tail -5
 echo
 echo "=== boot.json ==="
 python3 -c "
 import json
-d=json.load(open('/root/build/unixnu/out/popsicle/boot/boot.json'))
+d=json.load(open('<BUILD>/unixnu/out/popsicle/boot/boot.json'))
 for k,v in d.items(): print(f'  {k}: {v}')
 "

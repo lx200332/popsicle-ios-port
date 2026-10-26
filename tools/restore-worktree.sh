@@ -1,7 +1,7 @@
 #!/bin/bash
 # Restore the mu-silicium worktree: clear phantom staged deletions, then checkout missing blobs.
 set -x
-cd /c/dsh-对话/mu-silicium || exit 1
+cd <WORKSPACE>/mu-silicium || exit 1
 rm -f .git/index.lock
 
 git reset -q 2>&1 | tail -3

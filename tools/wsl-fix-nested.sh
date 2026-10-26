@@ -1,7 +1,7 @@
 #!/bin/bash
 # The nested submodules were extracted relative to workspace root; they belong under Mu_Basecore/.
 set -u
-cd /root/build/mu-silicium || exit 1
+cd <BUILD>/mu-silicium || exit 1
 
 while IFS=$'\t' read -r path sha; do
   [ -z "$path" ] && continue
@@ -15,7 +15,7 @@ while IFS=$'\t' read -r path sha; do
   else
     echo "no stray at $path (dst has $(find "$dst" -type f 2>/dev/null | wc -l) files)"
   fi
-done < /root/build/dl/nested_pins.tsv
+done < <BUILD>/dl/nested_pins.tsv
 
 echo "=== remove stray top-level dirs if now empty ==="
 for d in UnitTestFrameworkPkg MdeModulePkg MdePkg SecurityPkg BaseTools; do

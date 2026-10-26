@@ -1,5 +1,5 @@
 #!/bin/bash
-U=/root/build/mu-silicium
+U=<BUILD>/mu-silicium
 echo "=== DXE.inc 55-95 ==="
 sed -n '55,95p' "$U/Platforms/Xiaomi/popsiclePkg/Include/DXE.inc"
 echo

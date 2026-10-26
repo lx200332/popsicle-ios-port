@@ -1,9 +1,9 @@
 #!/bin/bash
 # Install the generated popsicle panel XMLs into Binaries/popsicle/RawFiles and rebuild.
 set -e
-UEFI=/root/build/mu-silicium
+UEFI=<BUILD>/mu-silicium
 RAW="$UEFI/Binaries/popsicle/RawFiles"
-SRC="/mnt/c/dsh-对话/popsicle-port/panels"
+SRC="/mnt<WORKSPACE>/popsicle-port/panels"
 
 for f in Panel_p2_42_0d_0b_mp_prim_dsc_cmd.xml Panel_p2_42_06_0a_sec_dsc_cmd.xml; do
   cp "$SRC/$f" "$RAW/$f"

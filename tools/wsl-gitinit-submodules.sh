@@ -1,7 +1,7 @@
 #!/bin/bash
 # Make each submodule directory a real git repo so edk2toolext's RequiredSubmodule check passes.
 set -u
-cd /root/build/mu-silicium || exit 1
+cd <BUILD>/mu-silicium || exit 1
 
 git config --global user.email "build@localhost" 2>/dev/null
 git config --global user.name  "build" 2>/dev/null

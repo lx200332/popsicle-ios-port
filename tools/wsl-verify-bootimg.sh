@@ -3,7 +3,7 @@
 set -e
 python3 - <<'PY'
 import struct, zlib, hashlib
-p = '/root/build/unixnu/out/popsicle/boot/boot.img'
+p = '<BUILD>/unixnu/out/popsicle/boot/boot.img'
 d = open(p, 'rb').read()
 print('file bytes   ', len(d))
 magic, ksize, kaddr, rsize, raddr, ssize, saddr, taddr, page, ver = struct.unpack_from('<8s9I', d, 0)

@@ -38,7 +38,7 @@ def main():
         print(f"# {p}  type={typ} sha={sha}", file=sys.stderr)
         if typ == "submodule" and sha:
             lines.append(f"{p}\t{sha}")
-    with open("/root/build/dl/nested_pins.tsv", "w") as f:
+    with open("<BUILD>/dl/nested_pins.tsv", "w") as f:
         f.write("\n".join(lines) + "\n")
     print(f"wrote {len(lines)} pins")
 

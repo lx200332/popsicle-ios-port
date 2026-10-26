@@ -1,8 +1,8 @@
 #!/bin/bash
 # Stage Binaries/popsicle from infiniti (same Kaanapali SoC package) and verify all references resolve.
 set -e
-cd /root/build/mu-silicium || exit 1
-SRC=/root/build/devbin/infiniti
+cd <BUILD>/mu-silicium || exit 1
+SRC=<BUILD>/devbin/infiniti
 DST=Binaries/popsicle
 
 rm -rf "$DST"

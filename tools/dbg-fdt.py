@@ -1,7 +1,7 @@
 import struct, sys
 from pathlib import Path
 
-data = Path(r'C:\dsh-对话\popsicle-port\dts\popsicle_merged.dtb').read_bytes()
+data = Path(r'<WORKSPACE>\popsicle-port\dts\popsicle_merged.dtb').read_bytes()
 magic, total, off_struct, size_struct, off_strings, size_strings = struct.unpack_from('>6I', data, 0)
 print(f'magic={magic:#x} total={total} off_struct={off_struct:#x} size_struct={size_struct:#x} off_strings={off_strings:#x} size_strings={size_strings:#x}')
 

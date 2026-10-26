@@ -7,8 +7,8 @@
 # Neither sgdisk nor parted is assumed: the GPT is read with dd straight off the block device and
 # parsed locally, and RAM comes from /proc/iomem. Root is needed for both, which the handset has.
 set -u
-ADB=${ADB:-/c/dsh-tools/cli/adb/adb.exe}
-PY=${PY:-/c/dsh-tools/cli/python315/python.exe}
+ADB=${ADB:-<TOOLS>/cli/adb/adb.exe}
+PY=${PY:-<TOOLS>/cli/python315/python.exe}
 HERE=$(cd "$(dirname "$0")" && pwd)
 WORK=${WORK:-$(mktemp -d)}
 BOARD=${BOARD:-$HERE/../UniXNU-popsicle/board.toml}

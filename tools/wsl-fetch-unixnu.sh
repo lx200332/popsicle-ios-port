@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-DL=/root/build/dl/unixnu
+DL=<BUILD>/dl/unixnu
 mkdir -p "$DL"
 cd "$DL" || exit 1
 
@@ -25,16 +25,16 @@ fetch_repo() {
   fi
 }
 
-fetch_repo "UniXNU/UniXNU"        "/root/build/unixnu"
-fetch_repo "UniXNU/UniXNU-sheng"  "/root/build/unixnu-sheng"
-fetch_repo "UniXNU/uefi-sheng"    "/root/build/uefi-sheng"
+fetch_repo "UniXNU/UniXNU"        "<BUILD>/unixnu"
+fetch_repo "UniXNU/UniXNU-sheng"  "<BUILD>/unixnu-sheng"
+fetch_repo "UniXNU/uefi-sheng"    "<BUILD>/uefi-sheng"
 
 echo
 echo "=== UniXNU top level ==="
-ls -la /root/build/unixnu 2>/dev/null | head -30
+ls -la <BUILD>/unixnu 2>/dev/null | head -30
 echo
 echo "=== UniXNU-sheng top level ==="
-ls -la /root/build/unixnu-sheng 2>/dev/null | head -30
+ls -la <BUILD>/unixnu-sheng 2>/dev/null | head -30
 echo
 echo "=== uefi-sheng: does it have popsicle-like platform? ==="
-ls /root/build/uefi-sheng/Platforms/*/ 2>/dev/null | head -20
+ls <BUILD>/uefi-sheng/Platforms/*/ 2>/dev/null | head -20

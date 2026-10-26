@@ -15,7 +15,7 @@
 - **dts 事实必须从 MiCode/kernel_devicetree@popices-w-oss 取**（本仓 qcom/popsicle-sm8850-touch.dtsi 等）。
 - **面板 dtsi 必须从 MiCode/vendor_qcom_opensource_display-devicetree@popsicle-w-oss 取**（kernel_devicetree 里没有 dsi-panel）。
 
-## 1. 触控（xk-dt /root/build/xk-dt/qcom/popsicle-sm8850-touch.dtsi，497 行）
+## 1. 触控（xk-dt <BUILD>/xk-dt/qcom/popsicle-sm8850-touch.dtsi，497 行）
 
 ### 供电（固定 regulator）
 - `touch_avdd_vreg`（第一屏 synaptics AVDD）：GPIO **tlmm 117**，enable-active-high，行 9-14。
@@ -31,7 +31,7 @@
 ### 第二屏 goodix GT9615v（&qupv3_se15_spi，行 442-497）
 - compatible "goodix,gt9615"；SPI GPIO12/13/14/15 = qup3_se2_l0..l3（行 223-269）；IRQ GPIO201；RST GPIO185；iovdd=<&L2F>；avdd=<&touch_avdd_vreg_second>；panel-max-x=97600 panel-max-y=59600（行 462-463，×100 为物理坐标 976×596）；firmware goodix_firmware_popsicle_csot；config goodix_cfg_group_popsicle_csot（行 467-468）。
 
-## 2. 面板（xk-disp /root/build/xk-disp/display/）
+## 2. 面板（xk-disp <BUILD>/xk-disp/display/）
 
 - popsicle-sde-display.dtsi（270 行）定义 9 个第一屏候选 + 1 个第二屏：
   - **第一屏默认** = `dsi_p2_42_02_0a_prim_dsc_cmd`（&sde_dsi，行 186）；候选 p2_42_0d_0b（prim/p12/p2/mp 四个变体）、p2_42_02_0a（p11/p12/p2 变体）、nt37801 fhd+ cmd。
@@ -45,7 +45,7 @@
 - **副屏 p2_42_06_0a**（dsi-panel-p2-42-06-0a-sec-dsc-cmd-common.dtsi）：**width=596 height=976**（横排副屏）；H 前/后 64/32、脉宽 32；V 前/后 32/32、脉宽 32；**clockrate=553000000**；topology `<1 1 1>`；DSC slice 596×16×1、10bpc 8bpp；**2 lane**（lane-0/1-state）。
 - canoe-sde-display-mtp.dtsi:298 默认面板 `dsi_p2_42_02_0a_dsc_cmd`（canoe 通用板）。
 
-## 3. 供电 regulator 定义（xk-dt /root/build/xk-dt/qcom/canoe-regulators.dtsi）
+## 3. 供电 regulator 定义（xk-dt <BUILD>/xk-dt/qcom/canoe-regulators.dtsi）
 
 - `L2F`（行 924-936）：`pmh0110_f_l2`，rpmh-vrm-regulator、resource `L2F_E0`、pmic7-ldo、固定 **1.2V**（行 931-933）。→ goodix iovdd。
 - `L4I`（行 1125-1137）：`pmh0110_i_l4`，resource `L4I_E0`、pmic7-ldo、固定 **1.8V**。→ syna iovdd。**注意：主控之前记忆的「pmh0110-i-l4 = syna iovdd」成立；「pmh0110-f-l2 = goodix iovdd」也成立。**
@@ -55,7 +55,7 @@
 
 ## 4. pKVM / gunyah / mitee
 
-- 实机「protected KVM」对应 gunyah 生态，不是标准 pKVM：canoe_perf.bzl（/root/build/xk-popsicle/configs/canoe_perf.bzl）行 52-70：`CONFIG_GH_ARM64_DRV/CTRL/DBL/VCPU_MGR/IRQ_LEND/MEM_NOTIFIER/MSGQ/PANIC_NOTIFIER/RM_BOOSTER/RM_DRV/RM_HEAP_MANAGER/TLMM_VM_MEM_ACCESS =m`、`CONFIG_QTVM_WITH_AVF=y`、`CONFIG_GUNYAH_DRIVERS=y`、`CONFIG_GUNYAH_TRACE=m`、`CONFIG_HVC_GUNYAH=m`；行 278 `CONFIG_QRTR_GUNYAH=m`。generic_vm_defconfig 行 134-136：`CONFIG_GUNYAH=y`、`CONFIG_GUNYAH_GUEST=y`、`# CONFIG_GUNYAH_QCOM_PLATFORM is not set`。全树无 `kvm-arm.mode=protected` 字样。
+- 实机「protected KVM」对应 gunyah 生态，不是标准 pKVM：canoe_perf.bzl（<BUILD>/xk-popsicle/configs/canoe_perf.bzl）行 52-70：`CONFIG_GH_ARM64_DRV/CTRL/DBL/VCPU_MGR/IRQ_LEND/MEM_NOTIFIER/MSGQ/PANIC_NOTIFIER/RM_BOOSTER/RM_DRV/RM_HEAP_MANAGER/TLMM_VM_MEM_ACCESS =m`、`CONFIG_QTVM_WITH_AVF=y`、`CONFIG_GUNYAH_DRIVERS=y`、`CONFIG_GUNYAH_TRACE=m`、`CONFIG_HVC_GUNYAH=m`；行 278 `CONFIG_QRTR_GUNYAH=m`。generic_vm_defconfig 行 134-136：`CONFIG_GUNYAH=y`、`CONFIG_GUNYAH_GUEST=y`、`# CONFIG_GUNYAH_QCOM_PLATFORM is not set`。全树无 `kvm-arm.mode=protected` 字样。
 - mitee（popsicle-sm8850.dtsi 行 42-68）：oem_vm_shm@fc200000 4MB no-map、gunyah-label 0x3；mitee 节点 binding-core 4 5 6、tui-supported；mitee-hlos-ipc gunyah-shm-label 0x3 peer-name 0x4。
 - popsicle_perf.bzl 实际模块（12 项）：CONFIG_FINGERPRINT_MI_FP/CONFIG_INPUT_CS40L26(_I2C)/CONFIG_SND_SOC_CS40L26/CONFIG_CL_DSP/CONFIG_DEVICE_MODULES_DIO_DMABUF_MAPPER/CONFIG_IR_SPI/CONFIG_MI_KERNEL_MONITOR/CONFIG_POWERINSIGHT(+GPU_OPP=m/GPU_OPP_STATS=y/GPU_FREQ_STATS=m)。
 
@@ -66,11 +66,11 @@
 
 ## 6. 编译现状（✅ 2026-10-24 完成）
 
-- **GKI Image.gz 编译成功**：`/root/build/out-common/arch/arm64/boot/Image.gz` 13,692,603 B，sha256 `47093bd463b53c96ca682afe9288fa42a1f79c62c4cdd9bbc1123af7e934f11e`；Image 32,537,088 B，magic `ARMd`✓，内核版本 6.12.23-4k-gf1bdb13583da。
+- **GKI Image.gz 编译成功**：`<BUILD>/out-common/arch/arm64/boot/Image.gz` 13,692,603 B，sha256 `47093bd463b53c96ca682afe9288fa42a1f79c62c4cdd9bbc1123af7e934f11e`；Image 32,537,088 B，magic `ARMd`✓，内核版本 6.12.23-4k-gf1bdb13583da。
 - 配方：TUNA 镜像浅克隆 ACK android16-6.12-2025-06_r8（xk-common，HEAD f1bdb135…=ACK_SHA）→ `make O=out-common ARCH=arm64 LLVM=1 gki_defconfig` → 关 BTF（pahole 1.25 太旧）→ `make Image modules -j10`（clang 18.1.3 + ld.lld + aarch64-linux-gnu-gcc 13.3.0，LLVM=1）。
 - 依赖补齐记录：libdw-dev（gendwarfksyms dwarf.h）、cpio（kheaders tar）、bc/bison/flex/libelf-dev/pahole/dtc。
-- vendor 模块 5 个 .ko 全部编译成功：dio_dma_mapper.ko（35,080 B）、powerinsight common.ko（151,088 B）+ gpu_stats.ko（20,440 B）+ gpu_freq_stats.ko（23,464 B）、mi_kernel_monitor.ko（700,432 B，需 /root/build/common→xk-common 符号链接满足 kleaf 相对 include）。
+- vendor 模块 5 个 .ko 全部编译成功：dio_dma_mapper.ko（35,080 B）、powerinsight common.ko（151,088 B）+ gpu_stats.ko（20,440 B）+ gpu_freq_stats.ko（23,464 B）、mi_kernel_monitor.ko（700,432 B，需 <BUILD>/common→xk-common 符号链接满足 kleaf 相对 include）。
 - dtb/dtbo 编译成功：canoe.dtb 444,248 B（sha256 fe772458…）+ popsicle-sm8850-overlay.dtbo 137,067 B（sha256 e29d45dc…），cpp 预处理+dtc -@ 两段式。
 - **边界（如实）**：这是 GKI 通用 Image，非 popsicle vendor 引导映像——缺 CONFIG_ARCH_CANOE（Kconfig.ext 手工 flatten 撞 61 个与 common 重复的 source，kleaf 才能正确合成）、缺 vendor fragment、dtbo 未封装 dtbo.img、未打 boot 头。作为**硬件事实参考源 100% 可用**；作为**可引导内核**还需 kleaf 环境或后续 Kconfig.ext 去重。
 - 工具链：clang 18.1.3 / gcc 13.3.0 / aarch64-linux-gnu-gcc 13.3.0 / ld.lld 18.1.3 齐备；pahole v1.25 + libelf-dev + libdw-dev + cpio 已装。
-- 仓库布局（/root/build/）：xk-popsicle（soc-repo 42M）、xk-common（ACK 1.9G）、xk-dt（devicetree 37M）、xk-disp（display devicetree 7.5M）、xk-work（kleaf 布局尝试，Kconfig.ext 撞车记录见 build/kconf*.log）、out-common（成功构建输出）。
+- 仓库布局（<BUILD>/）：xk-popsicle（soc-repo 42M）、xk-common（ACK 1.9G）、xk-dt（devicetree 37M）、xk-disp（display devicetree 7.5M）、xk-work（kleaf 布局尝试，Kconfig.ext 撞车记录见 build/kconf*.log）、out-common（成功构建输出）。

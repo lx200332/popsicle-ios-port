@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /root/build/mu-silicium || exit 1
+cd <BUILD>/mu-silicium || exit 1
 echo "=== BootShim artifacts ==="
 ls -la BootShim/
 echo
@@ -8,9 +8,9 @@ od -A d -t x1z -v -N 112 BootShim/BootShim.bin 2>/dev/null
 echo
 python3 - <<'PY'
 import struct, zlib
-bs = open("/root/build/mu-silicium/BootShim/BootShim.bin","rb").read()
+bs = open("<BUILD>/mu-silicium/BootShim/BootShim.bin","rb").read()
 print("BootShim.bin size =", len(bs))
-d = open("/root/build/mu-silicium/Mu-popsicle.img","rb").read()
+d = open("<BUILD>/mu-silicium/Mu-popsicle.img","rb").read()
 ks = struct.unpack_from('<I', d, 8)[0]
 kern = d[4096:4096+ks]
 dec = zlib.decompressobj(16+zlib.MAX_WBITS)

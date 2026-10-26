@@ -1,5 +1,5 @@
 #!/bin/bash
-U=/root/build/mu-silicium
+U=<BUILD>/mu-silicium
 F="$U/Silicon/Silicium/SiliciumPkg/Drivers/SimpleFbDxe/SimpleFb.c"
 echo "=== SimpleFb.c lines 120-190 ==="
 sed -n '120,190p' "$F"

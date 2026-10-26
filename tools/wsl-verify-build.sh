@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /root/build/mu-silicium || exit 1
+cd <BUILD>/mu-silicium || exit 1
 echo "=== FV output ==="
 ls -la Build/popsiclePkg/RELEASE_CLANGPDB/FV/*.fd 2>/dev/null
 echo

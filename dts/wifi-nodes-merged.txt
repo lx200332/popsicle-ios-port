@@ -1,4 +1,4 @@
-# file=C:/dsh-tools/cache/popsicle.dtb header.totalsize=1723024
+# file=<TOOLS>/cache/popsicle.dtb header.totalsize=1723024
 
 == NODE /reserved-memory/cnss_wlan_region ==
   phandle = <0x10e>

@@ -1,7 +1,7 @@
 #!/bin/bash
 python3 - <<'PY'
 import struct, zlib, gzip, io, hashlib
-p = "/root/build/mu-silicium/Mu-popsicle.img"
+p = "<BUILD>/mu-silicium/Mu-popsicle.img"
 d = open(p,'rb').read()
 PS = 4096
 ks = struct.unpack_from('<I', d, 8)[0]

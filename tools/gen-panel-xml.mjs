@@ -1,8 +1,8 @@
 // Emit DisplayDxe panel XML for the popsicle primary and secondary panels.
 import fs from 'node:fs';
 
-const DTB = 'C:\\dsh-对话\\popsicle-port\\dts\\popsicle_merged.dtb';
-const OUTDIR = 'C:\\dsh-对话\\popsicle-port\\panels';
+const DTB = 'C:\\<WORKSPACE>\\popsicle-port\\dts\\popsicle_merged.dtb';
+const OUTDIR = 'C:\\<WORKSPACE>\\popsicle-port\\panels';
 
 const PANELS = [
   { node: 'qcom,mdss_dsi_p2_42_0d_0b_mp_prim_dsc_cmd', timing: 'timing@wqhd_normal_120hz_index_00', file: 'Panel_p2_42_0d_0b_mp_prim_dsc_cmd.xml', desc: 'xiaomi p2 42 0d 0b prim cmd mode dsc dsi panel' },

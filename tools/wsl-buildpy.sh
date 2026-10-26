@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /root/build/mu-silicium || exit 1
+cd <BUILD>/mu-silicium || exit 1
 echo "===== build_uefi.py (first 120 lines) ====="
 head -120 build_uefi.py
 echo

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
-cd /root/build/mu-silicium || exit 1
-DL=/root/build/dl
+cd <BUILD>/mu-silicium || exit 1
+DL=<BUILD>/dl
 
 extract_into() { # $1=tarball $2=dest
   local tb="$1" dest="$2"

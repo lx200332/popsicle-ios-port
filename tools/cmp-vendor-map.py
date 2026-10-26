@@ -5,8 +5,8 @@ import re
 import sys
 from pathlib import Path
 
-MM = Path('/root/build/mu-silicium/Platforms/Xiaomi/popsiclePkg/Library/MemoryMapLib/MemoryMapLib.c')
-VENDOR = Path('/mnt/c/dsh-对话/popsicle-port/extract/uefi_memmap.json')
+MM = Path('<BUILD>/mu-silicium/Platforms/Xiaomi/popsiclePkg/Library/MemoryMapLib/MemoryMapLib.c')
+VENDOR = Path('/mnt<WORKSPACE>/popsicle-port/extract/uefi_memmap.json')
 
 source = MM.read_text()
 rows = [(m[1], int(m[2], 16), int(m[3], 16), m[4]) for m in re.finditer(

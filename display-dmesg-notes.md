@@ -1,8 +1,8 @@
 # popsicle 显示 dmesg 事实摘要
 
 材料：
-- `D:\Backup\Downloads\666\tiqu\06-display-touch\dmesg-display.txt`（112,660 B，1007 行）→ 下文简称 **disp:N**（第 N 行）
-- `D:\Backup\Downloads\666\tiqu\10-props-logs\dmesg-full.txt`（530,942 B）→ 下文简称 **full:N**（第 N 行）
+- `<DUMPS>\tiqu\06-display-touch\dmesg-display.txt`（112,660 B，1007 行）→ 下文简称 **disp:N**（第 N 行）
+- `<DUMPS>\tiqu\10-props-logs\dmesg-full.txt`（530,942 B）→ 下文简称 **full:N**（第 N 行）
 - 日志窗口：dmesg-display 从 t=15.057s 开始（早期 probe/bring-up 段未捕获）
 
 ---

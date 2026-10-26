@@ -2,8 +2,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const SRC = 'C:\\dsh-对话\\unixnu-sheng-src\\scripts\\make-sheng-adt.py';
-const DSTDIR = 'C:\\dsh-对话\\popsicle-port\\UniXNU-popsicle';
+const SRC = 'C:\\<WORKSPACE>\\unixnu-sheng-src\\scripts\\make-sheng-adt.py';
+const DSTDIR = 'C:\\<WORKSPACE>\\popsicle-port\\UniXNU-popsicle';
 const DST = path.join(DSTDIR, 'scripts', 'make-popsicle-adt.py');
 
 for (const d of ['configs', 'scripts', 'drivers', 'kits', 'patches', 'package']) {

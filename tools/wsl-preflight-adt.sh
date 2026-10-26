@@ -1,8 +1,8 @@
 #!/bin/bash
 # Run the popsicle preflight with explicit paths, and dump the ADT with the real record layout.
 set -e
-DEV=/root/build/UniXNU-popsicle
-UEFI=/root/build/mu-silicium
+DEV=<BUILD>/UniXNU-popsicle
+UEFI=<BUILD>/mu-silicium
 
 echo "=== preflight: check-popsicle.py ==="
 UNIXNU_UEFI="$UEFI" python3 "$DEV/scripts/check-popsicle.py" 2>&1 | tail -20

@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /root/build/mu-silicium || exit 1
+cd <BUILD>/mu-silicium || exit 1
 echo "===== platforms using KaanapaliPkg ====="
 grep -rl "KaanapaliPkg/KaanapaliPkg.dsc.inc" Platforms/ 2>/dev/null
 echo

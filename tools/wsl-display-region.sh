@@ -1,5 +1,5 @@
 #!/bin/bash
-U=/root/build/mu-silicium
+U=<BUILD>/mu-silicium
 echo "=== popsicle MemoryMapLib.c: all Display* entries ==="
 grep -n -i "display" "$U/Platforms/Xiaomi/popsiclePkg/Library/MemoryMapLib/MemoryMapLib.c"
 echo

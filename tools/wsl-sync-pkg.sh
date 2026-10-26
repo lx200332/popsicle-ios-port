@@ -1,8 +1,8 @@
 #!/bin/bash
 # Sync the hand-built popsiclePkg into the WSL build tree, then verify Binaries references.
 set -e
-cd /root/build/mu-silicium || exit 1
-SRC="/mnt/c/dsh-对话/mu-silicium/Platforms/Xiaomi/popsiclePkg"
+cd <BUILD>/mu-silicium || exit 1
+SRC="/mnt<WORKSPACE>/mu-silicium/Platforms/Xiaomi/popsiclePkg"
 DST="Platforms/Xiaomi/popsiclePkg"
 
 rm -rf "$DST"

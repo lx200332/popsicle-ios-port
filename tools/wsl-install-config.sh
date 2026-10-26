@@ -1,7 +1,7 @@
 #!/bin/bash
 # Install popsicle config + DTB into the WSL build tree.
 set -e
-cd /root/build/mu-silicium || exit 1
+cd <BUILD>/mu-silicium || exit 1
 
 # 1) Device config
 cat > Resources/Configs/popsicle.toml <<'EOF'
@@ -34,8 +34,8 @@ EOF
 echo "wrote Resources/Configs/popsicle.toml"
 
 # 2) Device DTB (merged popsicle DTB)
-SRC_DTB="/mnt/c/dsh-对话/popsicle-port/popsicle-port/dts/popsicle_merged.dtb"
-ALT_DTB="/mnt/c/dsh-对话/mu-silicium/Platforms/Xiaomi/popsiclePkg/FdtBlob/kaanapali-xiaomi-popsicle.dtb"
+SRC_DTB="/mnt<WORKSPACE>/popsicle-port/popsicle-port/dts/popsicle_merged.dtb"
+ALT_DTB="/mnt<WORKSPACE>/mu-silicium/Platforms/Xiaomi/popsiclePkg/FdtBlob/kaanapali-xiaomi-popsicle.dtb"
 if [ -f "$ALT_DTB" ]; then
   cp -f "$ALT_DTB" Resources/DTBs/popsicle.dtb
   echo "copied DTB from popsiclePkg/FdtBlob"

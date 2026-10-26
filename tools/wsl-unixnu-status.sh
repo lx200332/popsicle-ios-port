@@ -1,13 +1,13 @@
 #!/bin/bash
 # End-to-end: let the UniXNU driver read the popsicle device repo and pack the boot image itself.
 set -e
-DEV=/root/build/UniXNU-popsicle
-UEFI=/root/build/mu-silicium
-UNIXNU=/root/build/unixnu
+DEV=<BUILD>/UniXNU-popsicle
+UEFI=<BUILD>/mu-silicium
+UNIXNU=<BUILD>/unixnu
 
 rm -rf "$DEV"
 mkdir -p "$DEV"
-cp -r "/mnt/c/dsh-对话/popsicle-port/UniXNU-popsicle/." "$DEV/"
+cp -r "/mnt<WORKSPACE>/popsicle-port/UniXNU-popsicle/." "$DEV/"
 echo "=== device repo ==="
 find "$DEV" -type f | sed "s|$DEV/||" | sort
 echo

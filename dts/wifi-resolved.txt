@@ -1,4 +1,4 @@
-# C:/dsh-tools/cache/popsicle.dtb
+# <TOOLS>/cache/popsicle.dtb
 
 ## qcom,cnss-peach@b0000000 resolved refs
     clocks -> /soc/arbiter@c400000/spmi@c426000/pmk8850@0/sdam@b600/usb-mode@50 clk#6

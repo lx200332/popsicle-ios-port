@@ -117,7 +117,7 @@
 ---
 
 ## 附：材料来源索引
-- 厂商 DTB：`C:\dsh-tools\cache\popsicle.dtb`（1,723,024B，解析器 `C:\dsh-对话\popsicle-port\tools\fdt.mjs`）
-- MiCode DT：`/root/build/xk-dt/qcom/`（canoe.dtsi、canoe-pmic-overlay.dtsi）
-- soc-repo：`/root/build/xk-popsicle/`（drivers/input/fingerprint/mi_fp/、canoe_perf.bzl、canoe_tuivm.bzl）
-- 真机包：`D:\Backup\Downloads\666\tiqu\10-props-logs\`（getprop-all.txt、dmesg-full.txt）、`06-display-touch\input-devices.txt`、`03-modem\`（分区镜像 + _inventory + 00-VERIFY.txt）
+- 厂商 DTB：`<TOOLS>\cache\popsicle.dtb`（1,723,024B，解析器 `<WORKSPACE>\popsicle-port\tools\fdt.mjs`）
+- MiCode DT：`<BUILD>/xk-dt/qcom/`（canoe.dtsi、canoe-pmic-overlay.dtsi）
+- soc-repo：`<BUILD>/xk-popsicle/`（drivers/input/fingerprint/mi_fp/、canoe_perf.bzl、canoe_tuivm.bzl）
+- 真机包：`<DUMPS>\tiqu\10-props-logs\`（getprop-all.txt、dmesg-full.txt）、`06-display-touch\input-devices.txt`、`03-modem\`（分区镜像 + _inventory + 00-VERIFY.txt）

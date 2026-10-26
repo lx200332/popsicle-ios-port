@@ -1,7 +1,7 @@
 // List the display/panel-related node names and compatible strings in the merged popsicle tree.
 import fs from 'node:fs';
 
-const d = fs.readFileSync('C:\\dsh-对话\\popsicle-port\\dts\\popsicle_merged.dtb');
+const d = fs.readFileSync('C:\\<WORKSPACE>\\popsicle-port\\dts\\popsicle_merged.dtb');
 const FDT_BEGIN_NODE = 1, FDT_END_NODE = 2, FDT_PROP = 3, FDT_NOP = 4, FDT_END = 9;
 const be32 = o => d.readUInt32BE(o);
 const offStruct = be32(8), offStrings = be32(12);

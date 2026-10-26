@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /root/build/mu-silicium || exit 1
+cd <BUILD>/mu-silicium || exit 1
 echo "===== build_uefi.py 320-end ====="
 sed -n '320,500p' build_uefi.py
 echo

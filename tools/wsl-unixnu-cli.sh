@@ -1,6 +1,6 @@
 #!/bin/bash
 set -u
-R=/root/build/unixnu
+R=<BUILD>/unixnu
 cd "$R" || exit 1
 echo "=== unixnu wrapper ==="
 cat ./unixnu

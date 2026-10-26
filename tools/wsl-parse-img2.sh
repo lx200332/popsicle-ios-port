@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /root/build/mu-silicium || exit 1
+cd <BUILD>/mu-silicium || exit 1
 echo "=== Resources/ramdisk ==="
 ls -la Resources/ramdisk 2>/dev/null; stat -c '%s' Resources/ramdisk 2>/dev/null
 echo
@@ -8,7 +8,7 @@ od -A d -t x1z -v -N 96 Mu-popsicle.img
 echo
 python3 - <<'PY'
 import struct, gzip
-p = "/root/build/mu-silicium/Mu-popsicle.img"
+p = "<BUILD>/mu-silicium/Mu-popsicle.img"
 d = open(p,'rb').read()
 PS = 4096
 magic = d[0:8]

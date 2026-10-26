@@ -1,5 +1,5 @@
 #!/bin/bash
-U=/root/build/mu-silicium
+U=<BUILD>/mu-silicium
 echo "=== DisplayDxe in Binaries/popsicle ==="
 find "$U/Binaries/popsicle" -ipath "*isplay*" | head -30
 echo

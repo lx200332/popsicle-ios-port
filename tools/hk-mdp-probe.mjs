@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs';
 import { parseFdt } from './fdt.mjs';
-const t = parseFdt(readFileSync('C:/dsh-tools/cache/popsicle.dtb'));
+const t = parseFdt(readFileSync('<TOOLS>/cache/popsicle.dtb'));
 const real = t.root;
 function cells(v) { const r = []; if (!v) return r; for (let i=0;i+3<v.length;i+=4) r.push(v.readUInt32BE(i)); return r; }
 function walk(node) {

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Look for an SMEM RAM partition table in the extracted firmware, so dram_size stops being a guess.
-E=/mnt/c/dsh-对话/popsicle-port/extract
+E=/mnt<WORKSPACE>/popsicle-port/extract
 echo "=== extract/ top level ==="
 ls -la "$E" 2>/dev/null | head -40
 echo

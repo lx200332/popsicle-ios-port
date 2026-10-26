@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { parseFdt, fmtVal } from './fdt.mjs';
 
-const buf = readFileSync('C:/dsh-tools/cache/popsicle.dtb');
+const buf = readFileSync('<TOOLS>/cache/popsicle.dtb');
 const t = parseFdt(buf);
 const root = t.root.children[0];
 function find(n, path, name) {

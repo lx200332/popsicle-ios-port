@@ -1,7 +1,7 @@
 // Look at what immediately follows the imagefv_a volume header, and hunt for compression signatures.
 import fs from 'node:fs';
 
-const d = fs.readFileSync('C:\\dsh-对话\\popsicle-port\\fw\\dec\\imagefv_a_fv0.dec');
+const d = fs.readFileSync('C:\\<WORKSPACE>\\popsicle-port\\fw\\dec\\imagefv_a_fv0.dec');
 const hex = (buf, n = 16) => [...buf.subarray(0, n)].map(b => b.toString(16).padStart(2, '0')).join(' ');
 
 console.log('=== FV header region 0x00..0x90 ===');

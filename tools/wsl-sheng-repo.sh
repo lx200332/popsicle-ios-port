@@ -1,5 +1,5 @@
 #!/bin/bash
-R=/root/build/unixnu-sheng
+R=<BUILD>/unixnu-sheng
 echo "=== board.toml ==="
 cat "$R/board.toml"
 echo

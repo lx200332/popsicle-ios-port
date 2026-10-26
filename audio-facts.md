@@ -1,6 +1,6 @@
 # popsicle（Xiaomi 17 Pro Max · SM8850/canoe）iOS 16.5 hackios 移植 — ⑤音频驱动预研
 
-> 数据来源：厂商合并 DTB 反编译 `dts/popsicle_overlay.dts`（ODM DTBO）、MiCode `canoe_base.dts`（canoe.dtb 反编译）、WSL `/root/build/xk-dt/qcom/`（MiCode 源码树）、`/root/build/xk-popsicle/`（soc-repo）、真机提取 `D:\Backup\Downloads\666\tiqu\`。查不到的写「无据」，不臆测。
+> 数据来源：厂商合并 DTB 反编译 `dts/popsicle_overlay.dts`（ODM DTBO）、MiCode `canoe_base.dts`（canoe.dtb 反编译）、WSL `<BUILD>/xk-dt/qcom/`（MiCode 源码树）、`<BUILD>/xk-popsicle/`（soc-repo）、真机提取 `<DUMPS>\tiqu\`。查不到的写「无据」，不臆测。
 
 ## 1. 音频控制器型号（真机已知 → DTB 验证）
 

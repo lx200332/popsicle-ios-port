@@ -1,5 +1,5 @@
 #!/bin/bash
-U=/root/build/mu-silicium
+U=<BUILD>/mu-silicium
 echo "=== SimpleFbDxe exists? ==="
 ls -l "$U/Silicon/Silicium/SiliciumPkg/Drivers/SimpleFbDxe/" 2>/dev/null || find "$U/Silicon/Silicium" -ipath "*SimpleFbDxe*" | head
 echo

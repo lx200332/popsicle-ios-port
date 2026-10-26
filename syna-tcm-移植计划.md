@@ -60,7 +60,7 @@
 
 ## §2 redwood_goodix.c 骨架分解
 
-> 精读对象：WSL `/root/build/hackios/xnu-src/xnu-8796.121.2/bsd/dev/redwood_goodix.c`（1515 行），
+> 精读对象：WSL `<BUILD>/hackios/xnu-src/xnu-8796.121.2/bsd/dev/redwood_goodix.c`（1515 行），
 > 本地副本 `extract/syna-src/redwood_goodix.c`。行号为 2026-10-24 精读实测。
 
 ### 2.1 芯片无关骨架（可直接复用，只改参数）

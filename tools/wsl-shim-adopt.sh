@@ -1,12 +1,12 @@
 #!/bin/bash
 # Adopt the uefi-sheng BootShim.S in the Mu-Silicium checkout, rebuild, then let unixnu pack the image.
 set -e
-UEFI=/root/build/mu-silicium
-DEV=/root/build/UniXNU-popsicle
-UNIXNU=/root/build/unixnu
+UEFI=<BUILD>/mu-silicium
+DEV=<BUILD>/UniXNU-popsicle
+UNIXNU=<BUILD>/unixnu
 
 cp "$UEFI/BootShim/BootShim.S" "$UEFI/BootShim/BootShim.S.musilicium"
-cp /root/build/uefi-sheng/BootShim/BootShim.S "$UEFI/BootShim/BootShim.S"
+cp <BUILD>/uefi-sheng/BootShim/BootShim.S "$UEFI/BootShim/BootShim.S"
 echo "=== adopted uefi-sheng BootShim.S ==="
 grep -n 'Image Size\|FD_SIZE +\|dsb\|ic ' "$UEFI/BootShim/BootShim.S" | head
 
@@ -23,4 +23,4 @@ python3 unixnu bootimg -D "$DEV" --uefi "$UEFI" \
   --ramdisk none 2>&1 | tail -20 || true
 
 echo "=== output ==="
-find /root/build/unixnu/out/popsicle -maxdepth 3 -type f -printf '%s\t%p\n' 2>/dev/null | sort -k2
+find <BUILD>/unixnu/out/popsicle -maxdepth 3 -type f -printf '%s\t%p\n' 2>/dev/null | sort -k2

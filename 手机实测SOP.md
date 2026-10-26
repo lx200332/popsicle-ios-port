@@ -7,12 +7,12 @@
 
 | 前置 | 状态 |
 |---|---|
-| **实机镜像** `popsicle-v4-pe.img`（4,276,224 B，sha256 `b56af40a…`） | ✅ `C:\dsh-对话\popsicle-port\artifacts\popsicle-v4-pe.img` 与 WSL `/root/build/hackios/out/popsicle-v4-pe.img` |
+| **实机镜像** `popsicle-v4-pe.img`（4,276,224 B，sha256 `b56af40a…`） | ✅ `<WORKSPACE>\popsicle-port\artifacts\popsicle-v4-pe.img` 与 WSL `<BUILD>/hackios/out/popsicle-v4-pe.img` |
 | PE shim（4,268,032 B，Subsystem=10 EFI_APP，零 boot services 调用） | ✅ `popsicle-pe-shim.efi`（3d06c7ac…） |
 | UEFI FD（4 MiB，XnuLoader hook + "XNU Payload" Reserv @0x888000000 + logfs 诊断回退） | ✅ `SILICIUM_UEFI.fd` sha256 `645a4913…` |
 | loader.efi 手机版（PAYLOAD_BASE=0x888000000，含 platform_popsicle） | ✅ md5 `c1213b8f…`（镜像内嵌条目已核验同 md5） |
 | 自编 XNU 内核（xnu-8796.121.2-dirty，QEMU 回归通过） | ✅ `mach.development.bcm2837` sha256 `fa7569c1…` |
-| 一键实测脚本 / 验证器 | ✅ `C:\dsh-tools\cache\hk-real-test-pe.sh` / `hk-verify-pe-img.mjs` |
+| 一键实测脚本 / 验证器 | ✅ `<TOOLS>\cache\hk-real-test-pe.sh` / `hk-verify-pe-img.mjs` |
 | usbipd-win 5.3.0 + WSL vhci-hcd 自动加载 + WSL fastboot/adb | ✅ 全部就绪 |
 
 ## 1. 手机插入 USB 后（直通）
@@ -32,7 +32,7 @@ fastboot devices    # 应见 <MY_SERIAL> fastboot（若在 Android 态先 adb re
 **阶段 A：fastboot boot PE 镜像（本版核心路径）**
 
 ```bash
-cd /root/build/hackios
+cd <BUILD>/hackios
 fastboot boot out/popsicle-v4-pe.img
 # 预期：ABL PeCoffLoader 装载 PE → shim 把 FD 搬 0xC6800000、payload 搬 0x888000000
 #       → UEFI 起 → BootManager UnableToBoot → XnuLoaderMain
@@ -43,7 +43,7 @@ fastboot boot out/popsicle-v4-pe.img
 **阶段 B：xl 工具链（上传系统镜像 + 跑内核）**
 
 ```bash
-cd /root/build/hackios
+cd <BUILD>/hackios
 ./xl enter                                          # 进 loader（用修好的 env 重打包）
 ./xl ramdisk userland/system.apfs                   # 上传 2.5GB 系统镜像，约 80 秒
 # 基础 BOOTARGS + ④⑤ 五个调查驱动门控（逐外设排查时单独保留对应门控）
@@ -83,6 +83,6 @@ XL_SECS=900 XL_CMDLINE="touchscreen=1 syna=1 cpufreq=1 bootcpu=7 cpus=8 wifi_pro
 
 ## 6. 注意事项
 
-- **UEFI 重编陷阱**：WSL/Windows 时钟漂移会让 make 假跳过 → 先 `touch` 旧 Build 时间戳或删 Build 全量重编（`C:\dsh-tools\cache\rebuild-uefi-force.sh`）。
+- **UEFI 重编陷阱**：WSL/Windows 时钟漂移会让 make 假跳过 → 先 `touch` 旧 Build 时间戳或删 Build 全量重编（`<TOOLS>\cache\rebuild-uefi-force.sh`）。
 - **loader 版本陷阱**：QEMU 回归会临时切 qemu 版 loader（PAYLOAD_BASE=0xF0000000），跑完必须恢复手机版（`cp -a loader-phone.efi loader.efi`）再打包，否则镜像内 loader 指向错误地址。
-- 镜像重打一条命令：`C:\dsh-tools\cache\hk-mk-pe-img.sh`（FD/payload 变化后）。
+- 镜像重打一条命令：`<TOOLS>\cache\hk-mk-pe-img.sh`（FD/payload 变化后）。

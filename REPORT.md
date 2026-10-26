@@ -1,8 +1,8 @@
 # popsicle (Xiaomi 17 Pro Max / SM8850) 固件分析报告
 
 分析日期：2026-10-23
-工作区：`C:\dsh-对话\popsicle-port\`
-分析对象：`D:\Backup\Downloads\4.0.4.0\`（payload 解包产物）
+工作区：`<WORKSPACE>\popsicle-port\`
+分析对象：`<DUMPS>\4.0.4.0\`（payload 解包产物）
 
 ---
 

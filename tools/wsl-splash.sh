@@ -1,7 +1,7 @@
 #!/bin/bash
 # Inspect /reserved-memory/splash_region in the merged popsicle tree.
 set -e
-DTB=/root/build/mu-silicium/Resources/DTBs/popsicle.dtb
+DTB=<BUILD>/mu-silicium/Resources/DTBs/popsicle.dtb
 echo "=== node exists? ==="
 fdtget -l "$DTB" /reserved-memory | tr ' ' '\n' | grep -i splash || echo "no splash node"
 echo

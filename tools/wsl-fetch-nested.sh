@@ -1,7 +1,7 @@
 #!/bin/bash
 set -u
-cd /root/build/mu-silicium || exit 1
-mkdir -p /root/build/dl/nested
+cd <BUILD>/mu-silicium || exit 1
+mkdir -p <BUILD>/dl/nested
 
 declare -A URLS=(
   ["UnitTestFrameworkPkg/Library/CmockaLib/cmocka"]="tianocore/edk2-cmocka"
@@ -19,7 +19,7 @@ while IFS=$'\t' read -r path sha; do
   [ -z "$path" ] && continue
   repo="${URLS[$path]}"
   slug=$(echo "$path" | tr '/' '_')
-  tb="/root/build/dl/nested/$slug.tar.gz"
+  tb="<BUILD>/dl/nested/$slug.tar.gz"
   echo "=== $path  ($repo @ ${sha:0:12}) ==="
   if [ ! -s "$tb" ]; then
     curl -sSL --http1.1 --retry 6 --retry-all-errors -C - -o "$tb" \
@@ -31,7 +31,7 @@ while IFS=$'\t' read -r path sha; do
   else
     echo "  EXTRACT FAIL ($(du -h "$tb"|cut -f1))"
   fi
-done < /root/build/dl/nested_pins.tsv
+done < <BUILD>/dl/nested_pins.tsv
 
 echo
 echo "=== verify the one that blocked us ==="

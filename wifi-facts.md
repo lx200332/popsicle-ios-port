@@ -1,9 +1,9 @@
 # popsicle Wi-Fi 驱动预研（④）— 硬件事实与 XNU 移植评估
 
 > 范围：iOS 16.5 hackios 移植 · Xiaomi 17 Pro Max（SM8850/canoe, codename popsicle）
-> 证据来源：`C:\dsh-tools\cache\popsicle.dtb`（厂商合并 DTB）、`D:\Backup\Downloads\666\tiqu\02-devicetree\live-fdt.dtb`（真机 DTB）、
-> `D:\Backup\Downloads\666\tiqu\10-props-logs\dmesg-full.txt`（真机内核日志）、`D:\Backup\Downloads\666\tiqu\09-vendor-config\`（vendor 分区提取）、
-> MiCode `xk-dt`（WSL `/root/build/xk-dt/qcom/`）、soc-repo `/root/build/xk-popsicle/`、hackios xnu-8796.121.2 `bsd/redwood_wifi.c`。
+> 证据来源：`<TOOLS>\cache\popsicle.dtb`（厂商合并 DTB）、`<DUMPS>\tiqu\02-devicetree\live-fdt.dtb`（真机 DTB）、
+> `<DUMPS>\tiqu\10-props-logs\dmesg-full.txt`（真机内核日志）、`<DUMPS>\tiqu\09-vendor-config\`（vendor 分区提取）、
+> MiCode `xk-dt`（WSL `<BUILD>/xk-dt/qcom/`）、soc-repo `<BUILD>/xk-popsicle/`、hackios xnu-8796.121.2 `bsd/redwood_wifi.c`。
 > 约定：查不到的写「无据」，不臆测。DTB 值以真机 live-fdt.dtb 与厂商合并 DTB 相互印证为准。
 
 ---
@@ -132,7 +132,7 @@ pinctrl 组 `cnss_pins`：wlan_en_active/sleep（gpio16）、sw_ctrl（gpio18, f
 | peach/regdb_xiaomi.bin | 24278 B | 小米 regulatory db |
 | peach/qdss_trace_config_v2.cfg（及 _perf_v2） | — | 调试 trace 配置 |
 | wlan/qca_cld/peach_v2/WCNSS_qcom_cfg.ini | — | 板级 ini（经 `/devices/virtual/firmware/` 加载） |
-| wlan/qca_cld/peach_v2/wlan_mac.bin | — | MAC（DMS 下发 `a4:ff:9f:96:67:15`；路径含 PCI BDF） |
+| wlan/qca_cld/peach_v2/wlan_mac.bin | — | MAC（DMS 下发 `<WIFI_MAC>`；路径含 PCI BDF） |
 
 **vendor 分区提取（09-vendor-config）**：
 - `vendor-firmware.tar`：`./wlan/qca_cld/{kiwi_v2,peach_v2,wcn7750}/WCNSS_qcom_cfg.ini`（symlink → `/vendor/etc/wifi/<board>/`）、`wlan_mac.bin`（→ `/mnt/vendor/persist/wlan/wlan_mac.bin`）、`wlanmdsp.otaupdate`。

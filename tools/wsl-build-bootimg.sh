@@ -6,9 +6,9 @@
 #   --dtb             the assembled tree under build/<board>/ only exists after "unixnu tree",
 #                     which needs every feed fetched; point it at the vendor DTB instead
 set -e
-UEFI=/root/build/mu-silicium
-DEV=/root/build/UniXNU-popsicle
-UNIXNU=/root/build/unixnu
+UEFI=<BUILD>/mu-silicium
+DEV=<BUILD>/UniXNU-popsicle
+UNIXNU=<BUILD>/unixnu
 
 echo "== 1/3 firmware =="
 cd "$UEFI"

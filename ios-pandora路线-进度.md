@@ -36,10 +36,10 @@
 
 ### 脚本（全部可重跑）
 
-- `C:\dsh-tools\cache\diag\build-sweet-init.sh`
-- `C:\dsh-tools\cache\diag\mk-payload-real.sh`
-- `C:\dsh-tools\cache\diag\build-loader-real.sh`
-- `C:\dsh-tools\cache\diag\run-hello-boot.sh` / `run-loader-boot.sh`
+- `<TOOLS>\cache\diag\build-sweet-init.sh`
+- `<TOOLS>\cache\diag\mk-payload-real.sh`
+- `<TOOLS>\cache\diag\build-loader-real.sh`
+- `<TOOLS>\cache\diag\run-hello-boot.sh` / `run-loader-boot.sh`
 
 ### 当前手机状态
 
@@ -72,7 +72,7 @@
 
 - 全部 flags 0xa / raw arm64 Image / header v4 / 无绝对重定位。
 - loader-popsicle 编译用 dummy payload（真 payload 需内核 + mkpayload.py）。
-- 产物在 `C:\dsh-tools\cache\pandora-out\`。
+- 产物在 `<TOOLS>\cache\pandora-out\`。
 
 ### 2. ADT 生成器
 
@@ -94,7 +94,7 @@
 
 - 产物：Image 49152 B sha256 `1ac19b4b9169f0aa20db300ada2796e1aa28258e548822fe9635c933224c545a`；loader-boot.img 53248 B sha256 `5d8ec4d4e3f28352fc91efab9d8d23891d7f040436a0fefd8892077558995b10`。
 - 用 dummy payload（SWEETXNU v1 + 1 空段）验证编译链，flags 0xa / raw Image / v4 / payload 内嵌 @0xb000 4096 对齐 ✓。
-- 构建脚本 `C:\dsh-tools\cache\diag\build-loader-popsicle.sh`（WSL clang-18，替代 NDK 27.2）。
+- 构建脚本 `<TOOLS>\cache\diag\build-loader-popsicle.sh`（WSL clang-18，替代 NDK 27.2）。
 
 ### 6. QEMU 链路验证（工具链正确性证明，关键里程碑）
 
@@ -102,7 +102,7 @@
 - QEMU 结果：phys_base 0xb0000000、boot_args 0xb2268000、**entry 0xb144a4a8（= entry_va − virt_base + phys_base，地址换算正确）**；CPU 真正进入内核执行（PC 推进到 0xfffffff0074514e8，即 entry+0x7040 之后）。
 - **预期内**：内核在 EL1 里 data abort 循环（ESR 0x96000046 = EC 0x25 Data Abort at EL1，PC 0xfffffff00744ed68）。原因：hackios 内核（xnu-8796.121.2，16K 页，Mu-Silicium UEFI 引导约定）≠ pandora 内核（xnu-8796.141.3，4K 页 + sweet/pandora patch 的 boot_args/ADT 约定），boot_args/ADT 字段对不上是必然。**这不是工具链失败，恰好证明工具链（ADT 生成→payload 打包→段放置→CPU 跳转）端到端正确**。
 - 结论：本机可离线完成的全部工具链环节已验证通过；只差 pandora 真内核（4K 页）即可真机引导。
-- 脚本 `C:\dsh-tools\cache\diag\run-qemu-verify.sh`，产物 `/root/build/qemu-verify/`。
+- 脚本 `<TOOLS>\cache\diag\run-qemu-verify.sh`，产物 `<BUILD>/qemu-verify/`。
 
 ## 待办 / 阻塞
 

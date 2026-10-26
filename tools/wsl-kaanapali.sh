@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /root/build/mu-silicium || exit 1
+cd <BUILD>/mu-silicium || exit 1
 echo "=== KaanapaliPkg tree (depth2) ==="
 find Silicon/Qualcomm/KaanapaliPkg -maxdepth 2 -type d | sort | head -40
 echo
