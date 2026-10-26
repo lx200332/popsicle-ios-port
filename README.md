@@ -17,15 +17,18 @@
 | 物理按键（电源 / 音量±） | ✅ |
 | 触摸（Synaptics S3910P，`pandora_touch=0xf`） | ✅ |
 | 刷新率上限 60 Hz | ✅ |
-| GPU 提交（Metal → AGX） | ❌ 插件探完三个子类型后放弃 |
+| **GPU 提交（Metal → AGX）** | ✅ `PANDORA GPU SUBMIT 1000 submissions avg 41 us`，DCVS busy 0%→17% |
+| 桌面切换不闪屏 | ✅ 深帧缓冲 `b3a8` 被 nocopy 转成 `fmt 204` |
+| SpringBoard 完全启动 / 应用可用 | ❌ fence 回收异常（7001+ 次 timeout）+ 464 次 CRASH |
 | WiFi / 基带 | ❌ 内核无对应驱动 |
 
 ## 目录
 
 ```
-*.md                     进度与结论文档（28 篇，建议先读 STATUS-进度总结）
+*.md                     进度与结论文档（30 篇，建议先读 STATUS-进度总结）
 popsicle_*.c             驱动源码：audio / camera / fp / goodix / modem / syna / wifi
 dts/                     设备树（merged dtb / overlay / canoe base）
+boots/                   真机验证过的 fastboot boot 镜像（.img.gz）+ 里程碑索引
 UniXNU-popsicle/         另一条路线（UEFI + BootShim）的板级包
 tools/                   构建、FDT 合并、固件解析脚本
 panels/                  面板初始化序列
@@ -47,6 +50,7 @@ popsiclePkg/             空占位（实际包在 UniXNU-popsicle/firmware 下�
 | `全量审查-20261025.md` | 29 项 bug / 缺陷逐条审查 |
 | `项目交接文档.md` | 从零接手所需的全部环境事实 |
 | `CT放行与ct1构建-20261026.md` | CT policy 拒绝分支的精确补丁点 |
+| `GPU提交打通-20261026.md` | GPU 首次真正提交：confstr 空目录根因与两处插件机器码 |
 | `死锁收口与dyld补丁-20261025.md` | lsd / SpringBoard 冻结链与三处 dyld 补丁 |
 | `gpuplk-三连实验-20261025.md` | GPU 三轮上机实验记录 |
 | `手机实测SOP.md` | 上机操作标准流程 |
