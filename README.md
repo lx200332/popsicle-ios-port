@@ -20,12 +20,13 @@
 | **GPU 提交（Metal → AGX）** | ✅ `PANDORA GPU SUBMIT 1000 submissions avg 41 us`，DCVS busy 0%→17% |
 | 桌面切换不闪屏 | ✅ 深帧缓冲 `b3a8` 被 nocopy 转成 `fmt 204` |
 | SpringBoard 完全启动 / 应用可用 | ❌ fence 回收异常（7001+ 次 timeout）+ 464 次 CRASH |
-| WiFi / 基带 | ❌ 内核无对应驱动 |
+| WiFi（fuxi_wlan） | ⚠️ 源码已在核心里（28 步 PCIe0+MHI+BHI），首次以 `fuxiwlan=1` 上机验证中；本机 PCI ID 已从 `0x1107` 修正为 `0x110e` |
+| 蓝牙 / 基带 | ❌ 内核无对应驱动（不是编译问题，是从零写驱动栈） |
 
 ## 目录
 
 ```
-*.md                     进度与结论文档（30 篇，建议先读 STATUS-进度总结）
+*.md                     进度与结论文档（34 篇，建议先读 STATUS-进度总结）
 popsicle_*.c             驱动源码：audio / camera / fp / goodix / modem / syna / wifi
 dts/                     设备树（merged dtb / overlay / canoe base）
 boots/                   真机验证过的 fastboot boot 镜像（.img.gz）+ 里程碑索引
@@ -51,6 +52,10 @@ popsiclePkg/             空占位（实际包在 UniXNU-popsicle/firmware 下�
 | `项目交接文档.md` | 从零接手所需的全部环境事实 |
 | `CT放行与ct1构建-20261026.md` | CT policy 拒绝分支的精确补丁点 |
 | `GPU提交打通-20261026.md` | GPU 首次真正提交：confstr 空目录根因与两处插件机器码 |
+| `WiFi编译-本机交叉链打通-20261027.md` | 本机 XNU 交叉编译链（ld64-951.9 + .CFLAGS/.LDFLAGS）；fuxi_wlan 首次本机编译；PCI ID 0x1107→0x110e |
+| `ct5后续-卡点定位-20261027.md` | fence 噪声定性、CRASH 分布、SpringBoard 卡顿两层、优先级重排 |
+| `lsd不建库-完整分析-20261027.md` | lsd 从不建 LaunchServices 数据库的九条证据与静态分析上限 |
+| `路线A实验-LS_NO_SERVER-20261027.md` | LS_NO_SERVER 路线实测失败（语义取反）+ 回滚记录 |
 | `死锁收口与dyld补丁-20261025.md` | lsd / SpringBoard 冻结链与三处 dyld 补丁 |
 | `gpuplk-三连实验-20261025.md` | GPU 三轮上机实验记录 |
 | `手机实测SOP.md` | 上机操作标准流程 |

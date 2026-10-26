@@ -23,6 +23,7 @@ debug=0x8 serial=3 cpus=8 keepsyms=1 -noprogress rd=ufsroot0 ufsrw=1 rootrw=1
 | `loader-ct4-boot.img.gz` | 6.4 MB | `9c4dde0a7b71de65` | 16 | ct3 + sweetfb_hz=60 | 刷新率上限升到 60 Hz（present up to 60 Hz every 1 ticks） |
 | `loader-p6-boot.img.gz` | 6.4 MB | `f50941f0c7e1dc5c` | 16 | ct4 + P6 GPU 留痕（externalMethod ENTRY / PROBE cave） | PANDORA GPU ENTRY 与 PROBE 均 0 次 → externalMethod 从未被调用；插件探完三个子类型后放弃 |
 | `loader-ct5-boot.img.gz` | 6.4 MB | `1745d730ad2db289` | 16 | ct4 + 插件 `clientDevice` 两处机器码（`0x5bc4` nop、`0x5bcc` 换成 `/private/var/tmp/`）+ 新 trust cache | ★★ GPU 真正提交：`PANDORA GPU SUBMIT 1000 submissions avg 41 us`，DCVS busy 0%→17%，`WATCH submit 1325 / fence 1328`，Metal draw/pipe/tex/viewport 全跑；闪屏消失 |
+| `loader-wl1-boot.img.gz` | 6.5 MB | `8cf885e701238c13` | 16 | ct4 + 内核 5 处 PCI device ID `0x1107`(kiwi)→`0x110e`(peach) + cmdline 加 `fuxiwlan=1` | 待真机验证。这是**首次尝试启动 fuxi_wlan**（此前 `FUXI WLAN` 日志恒 0 行）。期望看到 `FUXI WLAN: enabled` + 前 13 步（不需要固件那段）；17–28 步需要 `/usr/local/share/fuxi/wlan/amss20.bin`，本机 rootfs 里没有 |
 
 ## 完整 sha256（原始 img，非 .gz）
 
@@ -33,6 +34,7 @@ df1625dc884a4e0ae44444f3547ce7a91e7b7c01671b938e13a123597b2768c8  loader-ct1-boo
 9c4dde0a7b71de65fcf05d5b24748e9711ad446573c9b7b480173b44c43adca2  loader-ct4-boot.img
 f50941f0c7e1dc5c6be5064a15f3cdb746c8a81686f8f144177db116ee4feef8  loader-p6-boot.img
 1745d730ad2db28989a39db60fbf6640bdf47d06733d03876d776e497b7d4cf7  loader-ct5-boot.img
+8cf885e701238c136d26e68bc9254d8f205b1e8503c71f9f5c33d1ad11f4ed1e  loader-wl1-boot.img
 ```
 
 ## 关键 cmdline 差异
@@ -44,6 +46,7 @@ f50941f0c7e1dc5c6be5064a15f3cdb746c8a81686f8f144177db116ee4feef8  loader-p6-boot
 | ct4 | ct3 + `sweetfb_hz=60` |
 | p6 | ct4 + 内核里 P6 两处 cave（不影响 boot-arg） |
 | ct5 | p6 同 cmdline；差异全在 rootfs 与插件，不在 boot-arg |
+| wl1 | ct5 同 cmdline + 末位 `fuxiwlan=1`（605 B / 608，余 3 B） |
 
 ## 共同的内核补丁
 
@@ -56,6 +59,22 @@ f50941f0c7e1dc5c6be5064a15f3cdb746c8a81686f8f144177db116ee4feef8  loader-p6-boot
 | P5 | `0xfffffff007474b94` | `cbnz`→`nop`，SE0 初始化失败也继续 |
 | P6a | `0xfffffff007a37ff0` | 跳 CAVE_B，打印 `PANDORA GPU ENTRY` |
 | P6b | `0xfffffff007a38048` | 跳 CAVE_A，打印 `PANDORA GPU PROBE` |
+
+## wl1 的内核补丁：PCI device ID 0x1107 → 0x110e
+
+`0099-fuxi-wlan.patch` 硬编码 `0x110717cb`（Qualcomm 0x17cb / WCN7850 "kiwi"），本机 DTB `supported-ids = <0x110e>`（"peach"），不改会在 `wl_probe_id` 处 `return 3`。
+
+`0x110717cb` 是 `movz w,#0x17cb` + `movk w,#0x1107,lsl#16` 两条指令，所以 32 位直接搜索命中 0 处。按 MOVK 编码扫得 5 处：
+
+| fileoff | 寄存器 | 原始 raw | 新 raw |
+|---|---|---|---|
+| `0x49dc30` | w9 | `0x72a220e9` | `0x72a221c9` |
+| `0x49dcd0` | w9 | `0x72a220e9` | `0x72a221c9` |
+| `0x4a0bdc` | w9 | `0x72a220e9` | `0x72a221c9` |
+| `0x4a81f4` | w10 | `0x72a220ea` | `0x72a221ca` |
+| `0x4aaa44` | w12 | `0x72a220ec` | `0x72a221cc` |
+
+MOVK 编码：`(0x3 << 29) | (0x25 << 23) | (hw << 21) | (imm16 << 5) | Rd`
 
 ## ct5 的插件补丁（不在内核里，在 rootfs 的 `System/Library/Extensions/NativeAdrenoMetal.bundle/NativeAdrenoMetal`）
 
