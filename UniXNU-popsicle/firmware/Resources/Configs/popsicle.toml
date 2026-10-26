@@ -1,0 +1,39 @@
+#
+# Boot Shim Configs
+#
+[boot_shim]
+requires_kernel_header = true
+
+#
+# UEFI FD Configs
+#
+# From the stock firmware: xbl_config.img -> /soc/memorymap -> UEFI_FD
+#   base 0xC6800000, size 0x400000
+# Confirmed by the entry point of uefi.img (ELF64, e_entry = 0xC6800000).
+#
+[uefi_fd]
+base = 0xC6800000
+size = 0x400000
+
+#
+# Android Boot Image Kernel Configs
+#
+[boot_image_kernel]
+kernel_compression = "gzip"
+append_dtb         = true
+
+#
+# Android Boot Image Configs
+#
+# header_version 0 and the offsets below are what the UniXNU boot step (scripts/unixnu/bootimg.py)
+# expects: it verifies the packed image against exactly these values (kernel_address == base +
+# kernel_offset, tags == base + tags_offset) and its verifier only knows the v0 header layout.
+# The v4 header that build_uefi.py wrote before has no page_size field and no address fields at all,
+# so it cannot satisfy that check.
+#
+[boot_image]
+header_version = 0
+base = 0x00000000
+kernel_offset = 0x00008000
+tags_offset = 0x01e00000
+pagesize = 4096

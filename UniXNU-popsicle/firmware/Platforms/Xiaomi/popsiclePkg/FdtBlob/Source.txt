@@ -1,0 +1,6 @@
+REPO: https://github.com/FantomTchi7/kaanapali-mainline-linux
+COMMIT: 32514fcf0d6f24e2c40a8996b459d7c2726162d5
+NOTE: popsicle (Xiaomi 17 Pro Max) device tree not upstreamed yet.
+      Base SoC dtb from vendor_boot.img (Canoe SoC, msm-id 0x294 0x10000)
+      must be merged with the popsicle overlay from dtbo.img (dtbo_01).
+      Place the merged dtb here as kaanapali-xiaomi-popsicle.dtb

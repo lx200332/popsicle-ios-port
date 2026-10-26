@@ -1,0 +1,141 @@
+# C:/dsh-tools/cache/popsicle.dtb
+
+## qcom,cnss-peach@b0000000 resolved refs
+    clocks -> /soc/arbiter@c400000/spmi@c426000/pmk8850@0/sdam@b600/usb-mode@50 clk#6
+    wcal-pbs-supply -> /soc/rsc@18900000/drv@2/rpmh-regulator-vrm-wcal/regulator-pmk8850-wcal-pbs
+      reg=- name="pmk8850_wcal_pbs" compatible=-
+    nvmem-cells -> /soc/arbiter@c400000/spmi@c426000/pmk8850@0/sdam@7100/xo_calib-data@59
+    reg = <0x59 0x1>
+    phandle = <0x6d>
+    vdd-wlan-ant-share-supply -> /soc/rsc@18900000/drv@2/rpmh-regulator-l3k-e1/regulator-pmr735d-l3
+      reg=- name="pmr735d_l3" compatible=-
+    vdd-wlan-rfa2-supply -> /soc/rsc@18900000/drv@2/rpmh-regulator-s7f-e0/regulator-pmh0110-f-s7
+      reg=- name="pmh0110_f_s7" compatible=-
+    vdd-wlan-rfa1-supply -> /soc/rsc@18900000/drv@2/rpmh-regulator-s8f-e0/regulator-pmh0110-f-s8
+      reg=- name="pmh0110_f_s8" compatible=-
+    vdd-wlan-dig-supply -> /soc/rsc@18900000/drv@2/rpmh-regulator-s2j-e1/regulator-pmh0104-s2
+      reg=- name="pmh0104_s2" compatible=-
+    vdd-wlan-cx-supply -> /soc/rsc@18900000/drv@2/rpmh-regulator-s1j-e1/regulator-pmh0104-s1
+      reg=- name="pmh0104_s1" compatible=-
+    vdd-wlan-io12-supply -> /soc/rsc@18900000/drv@2/rpmh-regulator-l3g-e0/regulator-pmh0110-g-l3
+      reg=- name="pmh0110_g_l3" compatible=-
+    vdd-wlan-aon-supply -> /soc/rsc@18900000/drv@2/rpmh-regulator-l2g-e0/regulator-pmh0110-g-l2
+      reg=- name="pmh0110_g_l2" compatible=-
+    wlan-dev-sol-gpio -> /soc/arbiter@c400000/spmi@c426000/pmh0110@3/pinctrl@8800/qcom,pmr735d@a/pmr735d-temp-alarm@a00 pin#205 flags=0x0
+    wlan-host-sol-gpio -> /soc/arbiter@c400000/spmi@c426000/pmh0110@3/pinctrl@8800/qcom,pmr735d@a/pmr735d-temp-alarm@a00 pin#204 flags=0x0
+    qcom,sw-ctrl-gpio -> /soc/arbiter@c400000/spmi@c426000/pmh0110@3/pinctrl@8800/qcom,pmr735d@a/pmr735d-temp-alarm@a00 pin#18 flags=0x0
+    qcom,bt-en-gpio -> /soc/cpucp-sram@0x1d838000/scmi-shmem@1 pin#5 flags=0x0
+    wlan-en-gpio -> /soc/arbiter@c400000/spmi@c426000/pmh0110@3/pinctrl@8800/qcom,pmr735d@a/pmr735d-temp-alarm@a00 pin#16 flags=0x0
+    qcom,wlan-sw-ctrl-gpio -> /soc/arbiter@c400000/spmi@c426000/pmh0110@3/pinctrl@8800/qcom,pmr735d@a/pmr735d-temp-alarm@a00 pin#19 flags=0x0
+
+## cnss_pins pinctrl (pins/groups)
+  == cnss_wlan_en_active ==
+    [mux]
+    function = "gpio"
+    pins = "gpio16"
+    [config]
+    bias-pull-up = 
+    output-high = 
+    drive-strength = <0x10>
+    pins = "gpio16"
+  == cnss_wlan_en_sleep ==
+    [mux]
+    function = "gpio"
+    pins = "gpio16"
+    [config]
+    bias-pull-down = 
+    output-low = 
+    drive-strength = <0x2>
+    pins = "gpio16"
+  == cnss_wlan_sw_ctrl ==
+    [mux]
+    function = "wcn_sw_ctrl"
+    pins = "gpio18"
+  == cnss_wlan_sw_ctrl_wl_cx ==
+    [mux]
+    function = "wcn_sw"
+    pins = "gpio19"
+  == cnss_host_sol_default ==
+    [mux]
+    function = "gpio"
+    pins = "gpio204"
+    [config]
+    bias-pull-down = 
+    drive-strength = <0x4>
+    pins = "gpio204"
+
+## pcie0 pinctrl
+  == pcie0_perst_default ==
+    [mux]
+    pins = "gpio102"
+    function = "gpio"
+    [config]
+    pins = "gpio102"
+    drive-strength = <0x2>
+    bias-pull-down = 
+  == pcie0_clkreq_default ==
+    [mux]
+    pins = "gpio103"
+    function = "pcie0_clk_req_n"
+    [config]
+    pins = "gpio103"
+    drive-strength = <0x2>
+    bias-pull-up = 
+  == pcie0_wake_default ==
+    [mux]
+    pins = "gpio104"
+    function = "gpio"
+    [config]
+    pins = "gpio104"
+    drive-strength = <0x2>
+    bias-pull-up = 
+  == pcie0_clkreq_sleep ==
+    [mux]
+    pins = "gpio103"
+    function = "gpio"
+    [config]
+    pins = "gpio103"
+    drive-strength = <0x2>
+    bias-pull-up = 
+
+## cnss_wlan_region (parent reserved-memory)
+  == cnss_wlan_region ==
+    phandle = <0x10e>
+    size = <0x0 0x2000000>
+    alignment = "", "", "", "", "", "@", ""
+    reusable = 
+    alloc-ranges = <0x0 0x0 0x0 0xffffffff>
+    compatible = "shared-dma-pool"
+
+## phandle 0x30 / 0xa4 / 0x34 / 0x47 / 0x6b / 0x383 / 0x19 / 0x36 / 0x6c identity
+  phandle 0x30 -> /soc/arbiter@c400000/spmi@c426000/pmh0110@3/pinctrl@8800/qcom,pmr735d@a/pmr735d-temp-alarm@a00
+  phandle 0xa4 -> /soc/cpucp-sram@0x1d838000/scmi-shmem@1
+  phandle 0x34 -> /soc/arbiter@c400000/spmi@c426000/pmk8850@0/sdam@b600/usb-mode@50
+  phandle 0x47 -> /soc/clock-controller@100000
+  phandle 0x6b -> /soc/apps-smmu@15000000
+  phandle 0x383 -> /soc/interconnect@16c0000
+  phandle 0x19 -> /soc/arbiter@c400000/spmi@c426000/pmk8850@0/sdam@7100/alarm-log@76
+  phandle 0x36 -> /soc/interconnect@1
+  phandle 0x6c -> /soc/arbiter@c400000/spmi@c426000/pmk8850@0/sdam@7100
+  phandle 0x9 -> /soc/psci/cpu-pd3
+
+## soc/qcom,qrtr-mhi-cnss
+    compatible = "qcom,qrtr-mhi"
+    qcom,dev-id = <0x1111>
+    qcom,net-id = <0x1>
+    qcom,low-latency = 
+
+## soc/qcom,cnss-vendor-wlan-wonder
+    phandle = <0x112>
+    status = "okay"
+    compatible = "qcom,cnss-vendor-wlan-wonder"
+
+## soc/qcom,cnss-direct-link
+    phandle = <0x6ef>
+    dma-coherent = 
+    memory-region = <0x10c>
+    qcom,iommu-group = <0x4bc>
+    iommus = <0x6b 0x100f 0x0>
+    #size-cells = <0x2>
+    #address-cells = <0x2>
+    compatible = "qcom,cnss-direct-link"

@@ -1,0 +1,79 @@
+
+### phandle 0x30
+  compatible = "qcom,spmi-temp-alarm"
+  reg = "", "", "\n"
+  phandle = <0x30>
+  name = "pmr735d-temp-alarm@a00"
+
+### phandle 0x34
+  reg = <0x50 0x1>
+  phandle = <0x34>
+  name = "usb-mode@50"
+
+### soc/pinctrl@f000000 (TLMM)
+  compatible = "qcom,canoe-tlmm"
+  reg = <0x0 0xf000000 0x0 0x202000>
+  #gpio-cells = <0x2>
+  gpio-controller = 
+  phandle = <0x30>
+  name = "pinctrl@f000000"
+
+### soc/clock-controller@100000 (GCC)
+  compatible = "qcom,canoe-gcc", "syscon"
+  reg = <0x0 0x100000 0x0 0x1f4200>
+  #clock-cells = <0x1>
+  phandle = <0x47>
+  name = "clock-controller@100000"
+
+### all clock-controller / phandle owners
+  //reserved-memory/aop_image_region@81c00000  phandle=0x396
+  //reserved-memory/aop_cmd_db_region@81c60000  phandle=0x397
+  //reserved-memory/aop_tme_uefi_merged_region@81c80000  phandle=0x398
+  //soc/rsc@18900000/drv@2/clock-controller  phandle=0x34
+  //soc/clock-controller@1760000  phandle=0x53
+  //soc/clock-controller@9ba2000  phandle=0x42
+  //soc/clock-controller@9ba2000/clock-controller@9ba4000  phandle=0x47d
+  //soc/clock-controller@956d000  phandle=0x43
+  //soc/clock-controller@24f0000  phandle=0x54
+  //soc/clock-controller@100000  phandle=0x47
+  //soc/clock-controller@3d90000  phandle=0x50
+  //soc/clock-controller@3d68024  phandle=0x47e
+  //soc/clock-controller@1fd5044  phandle=0x56
+  //soc/clock-controller@20f0000  phandle=0x57
+  //soc/clock-controller@0  phandle=0x47f
+
+### all pinctrl nodes
+  //soc/pinctrl@f000000  phandle=0x30
+  //soc/arbiter@c400000/spmi@c426000/pmk8850@0/pinctrl@b800  phandle=0x6c5
+  //soc/arbiter@c400000/spmi@c426000/pmh0101@1/pinctrl@8800  phandle=0x6c9
+  //soc/arbiter@c400000/spmi@c426000/pmh0110@3/pinctrl@8800  phandle=0x89
+  //soc/arbiter@c400000/spmi@c426000/pmh0110@3/pinctrl@8800/qcom,pmd802x@4/pinctrl@8800  phandle=0x9a
+  //soc/arbiter@c400000/spmi@c426000/pmh0110@3/pinctrl@8800/qcom,pmih010x@7/pinctrl@8800  phandle=0x6d7
+  //soc/arbiter@c400000/spmi@c426000/pmh0110@3/pinctrl@8800/pmh0104@9/pinctrl@8800  phandle=0xa4
+  //soc/arbiter@c400000/spmi@c426000/pmh0110@3/pinctrl@8800/qcom,pmr735d@a/pinctrl@8800  phandle=0xa6
+  //soc/arbiter@c400000/spmi@c426000/pmh0110@5/pinctrl@8800  phandle=0x93
+  //soc/arbiter@c400000/spmi@c426000/pmh0110@6/pinctrl@8800  phandle=0x95
+  //soc/arbiter@c400000/spmi@c426000/pmh0110@8/pinctrl@8800  phandle=0x97
+  //soc/spf_core_platform/lpi_pinctrl@07760000  phandle=0x69d
+  //soc/spf_core_platform/bt_swr_clk_data_pinctrl  phandle=0x737
+  //soc/spf_core_platform/pri_mi2s_pinctrl  phandle=0x34a
+  //soc/spf_core_platform/fm_i2s1_pinctrl  phandle=0x34b
+  //soc/spf_core_platform/tert_mi2s_pinctrl  phandle=0x73a
+  //soc/spf_core_platform/quat_mi2s_pinctrl  phandle=0x73b
+  //soc/spf_core_platform/quin_mi2s_pinctrl  phandle=0x73c
+  //soc/spf_core_platform/sen_mi2s_pinctrl  phandle=0x73d
+  //soc/spf_core_platform/sep_mi2s_pinctrl  phandle=0x73e
+  //soc/spf_core_platform/wsa_swr_clk_data_pinctrl  phandle=0x73f
+  //soc/spf_core_platform/wsa2_swr_clk_data_pinctrl  phandle=0x740
+  //soc/spf_core_platform/rx_swr_clk_data_pinctrl  phandle=0x741
+  //soc/spf_core_platform/tx_swr_clk_data_pinctrl  phandle=0x742
+  //soc/spf_core_platform/msm_cdc_pinctrl@32  phandle=0x313
+  //soc/spf_core_platform/cdc_dmic01_pinctrl  phandle=0x743
+  //soc/spf_core_platform/cdc_dmic23_pinctrl  phandle=0x744
+  //soc/spf_core_platform/cdc_dmic45_pinctrl  phandle=0x745
+  //soc/spf_core_platform/cdc_dmic67_pinctrl  phandle=0x746
+  //soc/spf_core_platform/pri_tdm_pinctrl  phandle=0x31a
+  //soc/wsa_spkr_en1_pinctrl  phandle=0x2b4
+  //soc/wsa_spkr_en2_pinctrl  phandle=0x2b6
+
+total phandle props scanned: 2505

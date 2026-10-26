@@ -1,0 +1,304 @@
+name: build
+
+# The kernel step needs macOS: build-xnu-4k-baseline.sh runs the XNU make with
+# SDKROOT=iphoneos and -miphoneos-version-min=17.0, so it needs Xcode and the iOS SDK.
+# A GitHub macOS runner has both, which is why this exists — the UEFI half of the port
+# builds anywhere (see the README), but this half does not.
+#
+# Dispatch with "kernel" first: it produces the compile records and the link that the
+# archive builders and the prelink step consume. "all" chains them in order.
+
+on:
+  workflow_dispatch:
+    inputs:
+      step:
+        description: 'firmware | kernel | prelink | payload | all'
+        type: choice
+        options: [all, firmware, kernel, prelink, payload]
+        default: kernel
+      xnu_sdkroot:
+        description: 'XNU_SDKROOT (iphoneos unless you are deliberately cross-checking)'
+        default: iphoneos
+      jobs:
+        description: 'parallel make jobs'
+        default: '6'
+      ecid:
+        description: 'device ECID in hex, needed only by the payload step (or set UNIXNU_UNIQUE_CHIP_ID)'
+        default: ''
+  push:
+    branches: [main]
+    paths: ['.github/workflows/build.yml', 'board.toml', 'configs/**', 'scripts/**']
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  kernel:
+    # macos-14 is arm64 and ships Xcode 15.x with the iOS 17 SDK. macos-15 also works;
+    # macos-13 is x86_64 and does not have the arm64 toolchain the script expects.
+    runs-on: macos-14
+    timeout-minutes: 350
+    steps:
+      - name: Check out the device repository
+        uses: actions/checkout@v4
+        with:
+          path: device
+
+      # Submodules are load-bearing: drivers/* provide the sources build-arm-driver.py
+      # compiles, and kits/NativePrelink/patches/*.patch is applied to the XNU work tree
+      # by build-xnu-4k-baseline.sh. Without them that script's glob does not expand and
+      # `git apply` fails on a literal path.
+      - name: Check out UniXNU with submodules
+        uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          path: unixnu
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The archive builders look for Homebrew LLVM and LLD first, and kernel.py prepends
+      # /opt/homebrew/opt/{llvm,lld}/bin to PATH itself, so this only has to install them.
+      - name: Install toolchain
+        run: |
+          brew install llvm lld cmake ninja unifdef
+          echo "/opt/homebrew/opt/llvm/bin" >> "$GITHUB_PATH"
+          echo "/opt/homebrew/opt/lld/bin" >> "$GITHUB_PATH"
+
+      - name: Show the toolchain the kernel step will use
+        run: |
+          xcode-select -p
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          clang --version | head -2
+          python3 --version
+
+      - name: Confirm the submodules actually arrived
+        run: |
+          set -euo pipefail
+          for d in drivers/ArmDTPlatform drivers/ArmCpu drivers/NativeUfs \
+                   drivers/NativeAES drivers/NativeVirtioBlock drivers/NativeRamBlock; do
+            test -d "unixnu/$d" || { echo "missing submodule: $d" >&2; exit 1; }
+            echo "ok $d ($(find "unixnu/$d" -type f | wc -l | tr -d ' ') files)"
+          done
+          test -d unixnu/kits/NativePrelink/patches || { echo 'missing kits/NativePrelink/patches' >&2; exit 1; }
+          ls unixnu/kits/NativePrelink/patches
+          echo "patches/xnu: $(ls unixnu/patches/xnu/*.patch | wc -l | tr -d ' ') patches"
+
+      - name: Configure
+        run: |
+          python3 unixnu/unixnu defconfig popsicle_defconfig \
+            -D device --out "$PWD/out" -j "${{ inputs.jobs || '6' }}"
+          python3 unixnu/unixnu status -D device --out "$PWD/out"
+
+      # board.toml names files in four different filesystems: this repository, the firmware/ overlay,
+      # the tree `unixnu` assembles, and a build directory. A path in the wrong one fails minutes
+      # later with ENOENT from inside a build step, which reads like a compiler problem. This runs
+      # before the step that first dereferences them; with cwd inside the assembled tree it has no
+      # board.toml to inspect and says so rather than reporting every path missing.
+      - name: Check that every path board.toml names exists where it is looked up
+        run: |
+          python3 device/scripts/check-references.py
+
+      # A guard can only refuse a symbol something reads. A mistyped CONFIG_ name is read by nothing,
+      # so the feature silently keeps its default and every guard passes. This runs first for that
+      # reason: it is the check that decides whether the guard results below mean anything.
+      - name: Check that every configured symbol is read by the build
+        run: |
+          python3 device/scripts/check-defconfig-symbols.py
+
+      # build-xnu-4k-baseline.sh refuses a configuration in about a second, but only after this
+      # runner has spent minutes checking out and installing a toolchain. Its refusals are plain
+      # `if <condition>; then echo '<reason>'; exit 1; fi` tests, so scripts/check-build-guards.py
+      # extracts and evaluates them locally. Running it here turns a wasted dispatch into a named
+      # failure before the compile starts. Exit 3 means a guard could not be decided from a
+      # .config alone: that is reported, not treated as a refusal.
+      - name: Check the configuration against the build script's guards
+        run: |
+          set +e
+          python3 device/scripts/check-build-guards.py \
+            unixnu/scripts/build-xnu-4k-baseline.sh \
+            out/popsicle/.config
+          status=$?
+          if [ "$status" = 1 ]; then
+            echo '::error::the configuration would be refused by build-xnu-4k-baseline.sh'
+            exit 1
+          fi
+          if [ "$status" = 3 ]; then
+            echo '::warning::some guards could not be decided locally; the build will decide them'
+          fi
+          exit 0
+
+      # `tree` is not needed as a separate step: every build step calls prepare(), which
+      # updates submodules, resolves modules, fetches the references and assembles the tree.
+      # `inputs.step` is empty on the push trigger, so each guard names the empty case rather
+      # than relying on a default: without that the kernel step would be skipped on push.
+      - name: Build the XNU kernel
+        if: ${{ !inputs.step || inputs.step == 'kernel' || inputs.step == 'all' }}
+        env:
+          XNU_SDKROOT: ${{ inputs.xnu_sdkroot || 'iphoneos' }}
+        run: |
+          set -o pipefail
+          python3 unixnu/unixnu build kernel \
+            -D device --out "$PWD/out" -j "${{ inputs.jobs || '6' }}" 2>&1 | tee kernel.log
+
+      # prelink needs the original decompressed kernelcache, which it takes from the IPSW named
+      # in board.toml [ipsw]. ipsw.py reaches for macOS /usr/bin/compression_tool to decode it, but
+      # the stream is LZFSE and the open-source lzfse package decodes it byte-for-byte identically
+      # (verified: 46415872 bytes, sha256 f18b4df8…, which is the pin). The step below substitutes
+      # the decoder inside the pinned checkout rather than forking it; ipsw.py:229 still hashes the
+      # result against the pin, so a wrong decoder fails loudly instead of yielding a bad cache.
+      - name: Allow the kernelcache to be decoded without compression_tool
+        if: ${{ inputs.step == 'prelink' || inputs.step == 'all' }}
+        run: |
+          brew install lzfse
+          python3 device/scripts/patch-unixnu-kernelcache.py "$PWD/unixnu"
+
+      # [kernel.prelink] describes that original kernelcache, not the kernel this job builds.
+      # scripts/verify-prelink.py measures it: the sha256 equals the pin, early_security_init lands
+      # inside AMFI's __TEXT_EXEC with read+execute protections, and every root is prelinked.
+      # It stays continue-on-error because the kernel from the step above is the artifact that
+      # answers the dispatch; a prelink failure should not throw that away.
+      - name: Prelink against the original kernelcache
+        if: ${{ inputs.step == 'prelink' || inputs.step == 'all' }}
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python3 unixnu/unixnu build prelink \
+            -D device --out "$PWD/out" -j "${{ inputs.jobs || '6' }}" 2>&1 | tee prelink.log
+          # The cache lives at out/ipsw/<the build board.toml names>/, so read the build
+          # out of board.toml instead of hardcoding it: changing [ipsw] must not need a
+          # matching edit here.
+          cache=$(python3 -c 'import tomllib,sys; print(tomllib.load(open("device/board.toml","rb"))["ipsw"]["build"])')
+          python3 device/scripts/verify-prelink.py \
+            "out/ipsw/$cache/kernelcache.decompressed" \
+            "com.apple.driver.AppleMobileFileIntegrity=0xfffffff005ab4ae0" \
+            --slide -0x1000000 --roots device/board.toml 2>&1 | tee -a prelink.log
+
+      # payload.py:105 refuses any trust cache whose sha256 is not in board.toml
+      # [payload] trust_cache_sha256, and neither file the IPSW ships is on that list: the pins are
+      # the hash of a *bundle* of two version-2 modules, each unwrapped from its DER envelope. Both
+      # shipped files are DER, so the bundle can be built here — no compression_tool, no hdiutil,
+      # no mounted DMG. make-popsicle-trustcache.py checks the result against the pins and fails
+      # loudly if the IPSW build is not the one the board was qualified against.
+      - name: Build the trust cache bundle
+        if: ${{ inputs.step == 'payload' || inputs.step == 'all' }}
+        run: |
+          set -o pipefail
+          python3 unixnu/unixnu ipsw fetch StaticTrustCache 'Cryptex1,SystemTrustCache' \
+            -D device --out "$PWD/out" 2>&1 | tee -a ipsw.log
+          python3 device/scripts/make-popsicle-trustcache.py \
+            --input out/ipsw \
+            --output "$PWD/out/popsicle/boot/kernel.macho.trustcache" \
+            --json "$PWD/out/popsicle/boot/trustcache.json"
+
+      - name: Build the payload volume
+        if: ${{ inputs.step == 'payload' || inputs.step == 'all' }}
+        continue-on-error: true
+        env:
+          # payload.py:121 wants the platform seed; it is deliberately absent from the repository,
+          # so it comes from the dispatch input or a repository secret, never from a commit.
+          UNIXNU_UNIQUE_CHIP_ID: ${{ inputs.ecid || secrets.POPSICLE_ECID }}
+        run: |
+          set -o pipefail
+          brew install mtools
+          python3 unixnu/unixnu build payload \
+            -D device --out "$PWD/out" -j "${{ inputs.jobs || '6' }}" \
+            --trust-cache "$PWD/out/popsicle/boot/kernel.macho.trustcache" 2>&1 | tee payload.log
+          # The ADT is the last artifact generated before the volume is sealed, so decode it
+          # back: a generator with no reader can emit bytes that parse as nothing and still
+          # exit 0. Read it out of the finished FAT image rather than from the staging
+          # directory — payload.build() removes that directory before returning, and reading
+          # from the image also proves the file actually made it into the volume.
+          mcopy -i out/popsicle/payload/payload.img ::/EFI/UniXNU/Payloads/kernel.macho.adt /tmp/kernel.macho.adt
+          python3 device/scripts/verify-adt.py /tmp/kernel.macho.adt \
+            --require-sidecar TrustCache 2>&1 | tee -a payload.log
+
+      # The patch list is the one input to the firmware build that the compiler cannot check for
+      # itself: a patch that does not apply to the edk2 pin stops `build firmware` after the whole
+      # Mu-Silicium clone, and a patch that applies but is already upstream would be rejected by
+      # firmware.py's `git apply --check` just the same. Checking it here costs eleven file fetches.
+      - name: Check the board patches against the edk2 pin
+        if: ${{ inputs.step == 'firmware' || inputs.step == 'all' }}
+        run: |
+          python3 device/scripts/check-patches-at-pin.py "$PWD/out/pin-check"
+
+      # `unixnu build firmware` refuses to run without --uefi, and no upstream checkout can build this
+      # board: popsiclePkg, the device config, the shim and Binaries/popsicle are all additions. This
+      # assembles that checkout from the pinned Mu-Silicium tarball plus the firmware/ overlay, and
+      # commits it dated with the upstream commit time -- which is what firmware.py passes to EDK II as
+      # SOURCE_DATE_EPOCH, and therefore what makes the volume below byte-reproducible.
+      - name: Assemble the Mu-Silicium checkout that this board builds against
+        if: ${{ inputs.step == 'firmware' || inputs.step == 'all' }}
+        run: |
+          set -o pipefail
+          python3 device/scripts/supply-firmware.py --target "$PWD/mu-silicium" 2>&1 | tee supply.log
+
+      # The firmware and the boot image are the two artifacts that need no Mac: the EDK II build is
+      # clang + python3 + make, and unixnu bootimg only repacks the volume with mkbootimg. Running
+      # them here also exercises the board patches against the edk2 pin in unixnu.lock, which is the
+      # one place a stale patch list would otherwise go unnoticed until someone flashes the image.
+      #
+      # --target RELEASE is not optional: cli.py defaults the firmware target to DEBUG, while the
+      # bootimg step below asks for the RELEASE volume, so leaving it out builds one and looks for
+      # the other. UNIXNU_UEFI is what the preflight scripts use to find the checkout.
+      - name: Build the firmware volume and the boot image
+        if: ${{ inputs.step == 'firmware' || inputs.step == 'all' }}
+        continue-on-error: true
+        env:
+          UNIXNU_UEFI: ${{ github.workspace }}/mu-silicium
+        run: |
+          set -o pipefail
+          python3 unixnu/unixnu build firmware \
+            -D device --out "$PWD/out" --uefi "$PWD/mu-silicium" --target RELEASE \
+            -j "${{ inputs.jobs || '6' }}" 2>&1 | tee firmware.log
+          python3 unixnu/unixnu bootimg \
+            -D device --out "$PWD/out" --target RELEASE \
+            --dtb "$PWD/mu-silicium/Resources/DTBs/popsicle.dtb" 2>&1 | tee bootimg.log
+
+      # Prove the image actually carries the loader before anyone flashes it. Each stage of the
+      # chain can look right while the next one drops its input, and the failure that costs a
+      # handset boot is "the volume is fine but UniXNU is not in it".
+      - name: Verify the boot image carries UniXNU
+        if: ${{ (inputs.step == 'firmware' || inputs.step == 'all') && hashFiles('out/popsicle/boot/boot.img') != '' }}
+        run: |
+          python3 device/scripts/verify-bootimg.py out/popsicle/boot/boot.img
+
+      # The kernel is the artifact that cannot be produced anywhere else. Upload it even if
+      # a later step failed, so one run answers the question the run was dispatched for.
+      - name: Collect artifacts
+        if: always()
+        run: |
+          set -x
+          mkdir -p artifacts
+          OBJ="out/popsicle/tree/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837"
+          cp -v "$OBJ"/mach.development.bcm2837.unstripped.noctf artifacts/ 2>/dev/null || true
+          cp -v "$OBJ"/mach.development.bcm2837 2>/dev/null || true
+          cp -v out/popsicle/kernel/kernel.macho artifacts/ 2>/dev/null || true
+          cp -v out/popsicle/kernel/kernel.macho.json artifacts/ 2>/dev/null || true
+          cp -v out/popsicle/payload/payload.img artifacts/ 2>/dev/null || true
+          cp -v out/popsicle/payload/payload.json artifacts/ 2>/dev/null || true
+          cp -v out/popsicle/boot/boot.img artifacts/ 2>/dev/null || true
+          cp -v out/popsicle/boot/boot.json artifacts/ 2>/dev/null || true
+          # The firmware volume itself, so its sha256 can be compared to the table in KERNEL-BUILD.md
+          # without unpacking the boot image.
+          cp -v mu-silicium/Build/popsiclePkg/RELEASE_CLANGPDB/FV/SILICIUM_UEFI.fd artifacts/ 2>/dev/null || true
+          cp -v firmware.log bootimg.log kernel.log prelink.log payload.log supply.log artifacts/ 2>/dev/null || true
+          cp -rv out/popsicle/logs artifacts/logs 2>/dev/null || true
+          # sha256 of everything, so a local run can be compared against this one
+          ( cd artifacts && find . -maxdepth 1 -type f ! -name SHA256SUMS -exec shasum -a 256 {} \; > SHA256SUMS ) || true
+          ls -lR artifacts | head -60
+
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: popsicle-${{ inputs.step || 'kernel' }}-${{ github.run_number }}
+          path: artifacts
+          if-no-files-found: warn
+          retention-days: 14

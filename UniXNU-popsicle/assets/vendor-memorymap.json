@@ -1,0 +1,306 @@
+[
+  {
+    "name": "memory@80000000",
+    "base": 2147483648,
+    "size": 26607616,
+    "tags": [
+      "memory",
+      "NOMAP",
+      "%"
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@81960000",
+    "base": 2174091264,
+    "size": 655360,
+    "tags": [
+      "memory",
+      "RSRV0",
+      "\""
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@81A00000",
+    "base": 2174746624,
+    "size": 393216,
+    "tags": [
+      "memory",
+      "XBL_DT",
+      "\""
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@81C00000",
+    "base": 2176843776,
+    "size": 655360,
+    "tags": [
+      "memory",
+      "AOP",
+      "%"
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@81CE4000",
+    "base": 2177777664,
+    "size": 65536,
+    "tags": [
+      "memory",
+      "UEFI_Log",
+      "%"
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@81D00000",
+    "base": 2177892352,
+    "size": 2097152,
+    "tags": [
+      "memory",
+      "SMEM",
+      "%"
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@81F00000",
+    "base": 2179989504,
+    "size": 1048576,
+    "tags": [
+      "memory",
+      "PDP_NS"
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@824A0000",
+    "base": 2185887744,
+    "size": 1048576,
+    "tags": [
+      "memory",
+      "PvmFw",
+      "\""
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@8AA00000",
+    "base": 2325741568,
+    "size": 489684992,
+    "tags": [
+      "memory",
+      "PIL_Reserved",
+      "%"
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@A7D00000",
+    "base": 2815426560,
+    "size": 46661632,
+    "tags": [
+      "memory",
+      "Display_Demura",
+      " "
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@AA980000",
+    "base": 2862088192,
+    "size": 91684864,
+    "tags": [
+      "memory",
+      "DBI_Dump",
+      "%"
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@B00F0000",
+    "base": 2953773056,
+    "size": 320471040,
+    "tags": [
+      "memory",
+      "DXE_Heap",
+      "\""
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@C4800000",
+    "base": 3296722944,
+    "size": 33554432,
+    "tags": [
+      "memory",
+      "HLOS1",
+      "\""
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@C6800000",
+    "base": 3330277376,
+    "size": 4194304,
+    "tags": [
+      "memory",
+      "UEFI_FD"
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@C6C00000",
+    "base": 3334471680,
+    "size": 2097152,
+    "tags": [
+      "memory",
+      "UEFI_FD_Reserved"
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@C6E00000",
+    "base": 3336568832,
+    "size": 4096,
+    "tags": [
+      "memory",
+      "CPU_Vectors"
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@C6E01000",
+    "base": 3336572928,
+    "size": 4096,
+    "tags": [
+      "memory",
+      "Info_Blk",
+      "\""
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@C6E02000",
+    "base": 3336577024,
+    "size": 12288,
+    "tags": [
+      "memory",
+      "MMU_PageTables",
+      "\""
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@C6E05000",
+    "base": 3336589312,
+    "size": 32768,
+    "tags": [
+      "memory",
+      "Log_Buffer",
+      "\""
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@C6E0D000",
+    "base": 3336622080,
+    "size": 262144,
+    "tags": [
+      "memory",
+      "UEFI_Stack",
+      "\""
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@C6E4D000",
+    "base": 3336884224,
+    "size": 573440,
+    "tags": [
+      "memory",
+      "SEC_Heap",
+      "\""
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@C6ED9000",
+    "base": 3337457664,
+    "size": 4194304,
+    "tags": [
+      "memory",
+      "Sched_Heap",
+      "\""
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@C72D9000",
+    "base": 3341651968,
+    "size": 4194304,
+    "tags": [
+      "memory",
+      "FV_Region",
+      "\""
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@C76D9000",
+    "base": 3345846272,
+    "size": 1208320,
+    "tags": [
+      "memory",
+      "UEFI_RESV",
+      "\""
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@C7800000",
+    "base": 3347054592,
+    "size": 268435456,
+    "tags": [
+      "memory",
+      "Kernel",
+      "\""
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@D7800000",
+    "base": 3615490048,
+    "size": 1835008,
+    "tags": [
+      "memory",
+      "XBL_Ramdump",
+      "%"
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@D7A00000",
+    "base": 3617587200,
+    "size": 2097152,
+    "tags": [
+      "memory",
+      "Global_SYNC",
+      "%"
+    ],
+    "nprops": 8
+  },
+  {
+    "name": "memory@FC800000",
+    "base": 4236247040,
+    "size": 45088768,
+    "tags": [
+      "memory",
+      "Display_Reserved",
+      " "
+    ],
+    "nprops": 8
+  }
+]

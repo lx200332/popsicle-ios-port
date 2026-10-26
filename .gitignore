@@ -1,0 +1,47 @@
+# ── 可复现的提取物与构建产物（不入库）────────────────────────────
+/extract/
+/artifacts/
+/fw/
+/_checktest/
+/stage/
+/build/
+
+# ── 反编译 / 提取的中间目录（体积大且可重建）──────────────────
+/gh-macos/
+/dexidx*/
+/apkstr/
+
+# ── 备份与临时文件 ────────────────────────────────────────────
+*.bak
+*.raw
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ── Python / Node 缓存 ───────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+node_modules/
+.pnpm-store/
+
+# ── 只保留 dts/ 与 UniXNU-popsicle/firmware 里的设备树 ────────
+*.bin
+*.img
+*.efi
+*.fd
+*.dtb
+*.macho
+*.dylib
+*.ipsw
+*.dmg
+!dts/*.dtb
+!UniXNU-popsicle/firmware/**/*.dtb
+
+# ── 别把 .gitignore 本身排掉 ─────────────────────────────────
+!.gitignore

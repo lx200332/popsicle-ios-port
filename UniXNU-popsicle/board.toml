@@ -1,0 +1,305 @@
+# Board description of the Xiaomi 17 Pro Max (popsicle, SM8850), read by the unixnu build driver.
+#
+# Ported from the sheng board (Xiaomi Pad 6S Pro, SM8550). Everything that is a property of the SoC or of
+# this handset has been replaced with values read from the merged device tree
+# (popsicle_merged.dtb, 1,723,024 bytes, md5 ddd446e7c630fe69625bac362205f413); everything that is a
+# property of the *emulated Apple device* is left as it is on sheng, because the target image is the same
+# unchanged iPad7,1 restore.
+
+[board]
+name = "popsicle"
+soc = "SM8850"
+description = "Xiaomi 17 Pro Max"
+kit = "popsicle"                   # the package/ of this repository appears as kits/popsicle in the build tree
+
+# The target OS image: the unchanged iPad7,1 iPadOS 17.7.11 restore image. Give --ipsw PATH to use a local file; without
+# it the remote url is read with range requests, only the members that are needed.
+#
+# NOTE: the identity here describes the *emulated* Apple device, not the Qualcomm SoC. It is deliberately
+# unchanged from sheng: it is the combination that is known to get as far as a booting kernel. A phone-shaped
+# identity (iPhone, artwork-device-idiom=phone) is a later step, once the kernel reaches the framebuffer.
+[ipsw]
+url = "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/122-77166/DCA6CFE8-90E9-4B92-880D-3DE171798E40/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw"
+product = "iPad7,1"
+version = "17.7.11"
+build = "21H461"
+device_class = "j120ap"
+chip_id = 0x8011
+board_id = 12
+fetch = ["KernelCache", "DeviceTree", "StaticTrustCache", "Cryptex1,SystemTrustCache"]   # the small components
+
+[ipsw.sha256]
+"044-76040-038.dmg" = "3f99b859c9728379110b66657c7b15285bcb1925ad8b5726542e2cdcf8b1028d"
+"044-76034-038.dmg" = "b4908cde41d23e6bc05e6af51a2c9eeb00cf0f863a6a18b1600c96a3fd70414f"
+
+# [userdata] is deliberately absent.
+#
+# It maps the raw image of the iPadOS "userdata" partition: first_lba/last_lba are the GPT entry of LUN 0 on
+# the *physical* device, so they can only be read from this handset. The sheng numbers (0x2f3840/0x3d0abfa)
+# describe a different phone and would write into whatever partition happens to live at those sectors.
+#
+# To fill it in, with the phone connected and adb authorised:
+#   adb shell 'su -c "sgdisk -p /dev/block/sda"'      # or: cat /proc/partitions + a GPT dump
+# then add:
+#   [userdata]
+#   first_lba = 0x...
+#   last_lba  = 0x...
+#   lba_bytes = 4096
+#   windows = [
+#     { name = "OS", component = "OS" },
+#     { name = "SystemOS", component = "Cryptex1,SystemOS" },
+#   ]
+# Until then `unixnu build userdata` is expected to fail, and `bootimg`/`payload` do not need it.
+
+[kernel]
+defconfig = "popsicle_defconfig"
+# Archive builders of the kernel step, in order. Each is a script of the build tree with its arguments.
+#
+# Only the SoC-generic drivers are built for the first bring-up. sheng's board-local builders
+# (build-sheng-platform-power.py, build-boot-progress.py, build-arm-driver.py NativeAdreno,
+# build-native-adreno-kits.py, build-native-adreno-accelerator.py, build-native-legacy-display.py) are
+# omitted on purpose: they compile against kits/sheng and the SM8550 GPU/display register map, neither of
+# which exists for canoe yet. They come back once the kernel reaches a console.
+archives = [
+  "build-corecrypto-14.py",
+  "build-corecrypto-14.py --namespace",
+  "build-arm-driver.py ArmDTPlatform",
+  "build-arm-driver.py ArmCpu",
+  "build-arm-driver.py NativeAES",
+  "build-native-aes-bindings.py",
+  "build-arm-driver.py NativeUfs",
+  "build-arm-driver.py NativeVirtioBlock",
+  "build-arm-driver.py NativeRamBlock",
+  "build-native-virtio-bindings.py --component NativeRamBlock --directory build/native-ram-block",
+  "build-native-virtio-bindings.py --component NativeVirtioBlock",
+  "build-mockfs-fixture.py",
+  "build-libpthread-kernel.py",
+]
+
+# Prelink against the original Apple kernelcache.
+#
+# Every value in this block describes the INPUT kernelcache, not the kernel we build, which is why it
+# carries over from sheng unchanged:
+#
+#   * [ipsw] above is the same image sheng uses (iPad7,1 / 17.7.11 / 21H461), so the kernelcache that
+#     `unixnu fetch` decompresses is the same file -> same kernelcache_sha256.
+#   * early_security_init is an address inside that kernelcache's com.apple.driver.AppleMobileFileIntegrity
+#     module. emit_prelink.py validates it against the ORIGINAL module's __TEXT_EXEC segment
+#     (emit_prelink.py:150-157), never against our build, so a different defconfig cannot invalidate it.
+#   * roots names the kexts whose bindings get rewritten; they must exist in that kernelcache.
+#   * unixnu.lock pins the same xnu commit (d8b80295118ef25ac3a784134bcf95cd8e88109f), so the source we
+#     compile is the same version the kernelcache's kexts expect.
+#
+# Both pins are hard-checked rather than trusted, so a wrong assumption fails loudly instead of producing
+# a broken image: ipsw.py:229 rejects a kernelcache that misses the pin, and kernel.py:117-119 rejects a
+# cache that does not match `kernelcache_sha256`. If popsicle ever moves to a different IPSW, both errors
+# fire and the two values plus the roots list have to be re-derived from the new kernelcache.
+#
+# This block is what makes CRYPTO_BOOTSTRAP="prelinked" in popsicle_defconfig viable, which in turn is
+# what build-xnu-4k-baseline.sh:162-165 requires before it will enable NATIVE_AES (:166-171 and :182-187
+# then let NATIVE_VIRTIO_BLOCK and NATIVE_RAM_BLOCK through).
+[kernel.prelink]
+tool = "kits/NativePrelink/emit_prelink.py"
+kernel = "build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/mach.development.bcm2837.unstripped.noctf"
+kernelcache_sha256 = "f18b4df865405f2a287b84977d7aca745e056d656d9fc9df1662970ce2969de7"
+slide = "-0x1000000"
+# void(void) policy initializer inside the original AMFI module, called before MAC lockdown.
+early_security_init = "com.apple.driver.AppleMobileFileIntegrity=0xfffffff005ab4ae0"
+roots = [
+  "com.apple.AppleFSCompression.AppleFSCompressionTypeZlib",
+  "com.apple.driver.AppleARMPlatform",
+  "com.apple.driver.AppleARMWatchdogTimer",
+  "com.apple.driver.AppleAudioClockLibs",
+  "com.apple.driver.AppleEffaceableStorage",
+  "com.apple.driver.AppleIISController",
+  "com.apple.driver.AppleM2ScalerCSCDriver",
+  "com.apple.driver.AppleMobileFileIntegrity",
+  "com.apple.driver.ApplePMGR",
+  "com.apple.driver.IODARTFamily",
+  "com.apple.filesystems.apfs",
+  "com.apple.iokit.CoreAnalyticsFamily",
+  "com.apple.iokit.IOAVFamily",
+  "com.apple.iokit.IOAudio2Family",
+  "com.apple.iokit.IOCECFamily",
+  "com.apple.iokit.IOCryptoAcceleratorFamily",
+  "com.apple.iokit.IOGPUFamily",
+  "com.apple.iokit.IOHDCPFamily",
+  "com.apple.iokit.IOMobileGraphicsFamily",
+  "com.apple.iokit.IOReportFamily",
+  "com.apple.iokit.IOSlowAdaptiveClockingFamily",
+  "com.apple.iokit.IOStorageFamily",
+  "com.apple.iokit.IOSurface",
+  "com.apple.kec.Libm",
+  "com.apple.kec.corecrypto",
+  "com.apple.kext.AppleMatch",
+  "com.apple.kext.CoreTrust",
+  "com.apple.security.AppleImage4",
+  "com.apple.security.sandbox",
+  "com.apple.iokit.IOHIDFamily",
+  "com.apple.iokit.IOHIDEventDriver",
+]
+
+[firmware]
+config = "popsicle"                # Resources/Configs/popsicle.toml in the Mu-Silicium checkout (--uefi)
+dsc = "Platforms/Xiaomi/popsiclePkg/popsicle.dsc"
+fd = "Build/popsiclePkg/{target}_CLANGPDB/FV/SILICIUM_UEFI.fd"
+# stage-popsicle-patches.py runs first: firmware.py resolves a patch as uefi/patch, i.e. inside the
+# Mu-Silicium checkout, and the build clones that fresh -- so a patch committed here is invisible to it
+# until the script copies it into <uefi>/Resources/MuPatches/ (preflight runs before any patch is applied).
+preflight = ["scripts/stage-popsicle-patches.py", "scripts/check-popsicle.py", "scripts/check-references.py"]
+submodules = ["Common/Mu", "Common/Mu_OEM_Sample", "Silicium-ACPI", "Silicon/Silicium/OpensslPkg/Library/OpensslLib/openssl"]
+patches = [
+  # All six are needed at the edk2 pin in unixnu.lock (cfb93724, 2026-10-02). Verified per file against
+  # that pin: every one reports NEEDS-APPLYING, none is already present. sheng lists only Gic-Spurious,
+  # which at this pin leaves the other five unapplied -- five real fixes (AArch64 section naming, secure
+  # boot auth, the boot manager menu, the generic timer frequency, the USB hub API) silently missing.
+  #
+  # Applying all six reproduces the content of mu_basecore's release/202608 head from 2026-10-23, because
+  # the other five were merged upstream between the pin and the head. That head is the tree this board was
+  # actually built and verified against, so this list is what makes the runner's build the same sources.
+  # scripts/stage-popsicle-patches.py copies these into the Mu-Silicium checkout where firmware.py looks,
+  # and refuses to proceed if one neither applies nor is already present.
+  "Resources/MuPatches/AsmMacroLib.patch",
+  "Resources/MuPatches/Auth-Service.patch",
+  "Resources/MuPatches/Boot-Manager.patch",
+  "Resources/MuPatches/Timer.patch",
+  "Resources/MuPatches/Usb-Bus.patch",
+  "Resources/MuPatches/Gic-Spurious.patch",
+]
+packages = [
+  "{uefi}",
+  "{uefi}/Platforms/Xiaomi",
+  "{tree}/package",
+  "{tree}/drivers/DarwinBoot",
+  "{edk2}",
+  "{uefi}/Common/Mu",
+  "{uefi}/Common/Mu_OEM_Sample",
+  "{uefi}/Silicon/Qualcomm",
+  "{uefi}/Silicon/Silicium",
+  "{uefi}/Silicium-ACPI",
+  "{uefi}/Silicium-ACPI/Platforms/Xiaomi",
+  "{uefi}/Silicium-ACPI/Silicon/Qualcomm",
+]
+
+# Where the Mu-Silicium checkout comes from. `unixnu build firmware` requires --uefi DIR and
+# need_uefi() refuses to continue without one, but nothing upstream carries this board: popsiclePkg,
+# the device config, the shim and Binaries/popsicle are all additions. scripts/supply-firmware.py
+# assembles that checkout from the pinned upstream tarball plus the overlay/ tree beside this file,
+# so a runner with no pre-existing checkout can build the same volume a local build produces.
+[firmware.supply]
+repo = "Project-Silicium/Mu-Silicium"
+commit = "42fe563791e51bf5500c2e470ed294ca0c94b97c"
+# The commit date, not the commit's file contents, is the reproducibility input: firmware.py reads
+# `git log -1 --format=%ct` for SOURCE_DATE_EPOCH and EDK II embeds that timestamp in the volume.
+# Committing the assembled tree with this exact date is what makes the FD hash match.
+# (Measured: same sources at 1792731823 -> 2de63b3e…, at 1792564011 -> 9a4e0f5a…, and the second
+# value reproduces bit for bit across runs. 1792564011 is 2026-10-21T06:26:51Z, this commit.)
+commit_time = "2026-10-21T06:26:51Z"
+overlay = "firmware"                # directory layout mirrors the checkout
+binaries = { repo = "Project-Silicium/Device-Binaries", commit = "a1501e0c2e642d6ac0d8f52c85af2a67b75a7799", device = "infiniti" }
+# device = infiniti because Device-Binaries has no popsicle directory, and infiniti is the only other
+# Kaanapali/SM8850 board it ships: the DXE set is distributed per SoC, not per handset. The overlay
+# then adds the two popsicle panel descriptions that are genuinely board-specific.
+
+# ENABLE_SECUREBOOT is 0 here, unlike sheng. The popsicle firmware volume was first built and verified
+# with 0x400000 bytes at FD_BASE 0xC6800000 and ENABLE_SECUREBOOT=0; flipping it to 1 changes which DXE
+# drivers are pulled in and has not been exercised on this handset yet.
+[firmware.defines]
+ENABLE_SECUREBOOT = "0"
+DEVICE_MODEL = "popsicle"
+MEMORY_PROTECTION = "TRUE"
+SHIP_MODE = "FALSE"
+BUILDID_STRING = "popsicle-research"
+
+# The ramdisk of the boot image: a FAT volume with the UniXNU config, the kernel, its device tree and
+# the optional trust cache and Data seed. The loader (DarwinBoot) is part of the firmware volume.
+[payload]
+volume = "POPSICLEESP"
+size_mib = 192
+loader = "firmware"
+title = "Boot"
+# SMEM RAM table value is not read yet; this is the same 2 GiB low window sheng uses
+# (0x80000000..0x100000000). Confirm against the canoe SMEM table before trusting it.
+dram_size = "0x80000000"
+skip_setup_tool = "scripts/seed-data-skip-setup.py"   # used by --skip-setup
+panic_screen = true                  # patch panic() screen output into the payload copy of the kernel
+# The original static/System trust caches, and the owner trust bundle built around them.
+trust_cache_sha256 = [
+  "7416ca4f8377146626bb284e2133c76bee6cb4e3ee0af5d648b186235a7323a7",
+  "8900d6a93d7a59ce1a872a5c081e559f4240a218f97e12d44d22dda46644d68f",
+]
+# First bring-up argument set: no sheng-* switches (their drivers are not built), and in particular no
+# `native-ufs-root=1`, which payload.py only allows together with `sheng-pmgr=2` and a kernel that exports
+# _sheng_pmgr_run — the unchanged target AMFI otherwise panics with No PMGR.
+kernel_args = [
+  "-v",
+  "serial=3",
+  "debug=0x14e",
+  "kt_fixed_zones=120",
+  "-apfs_shared_datavolume",
+  "armcpu-diagnostics=1",
+  "armcpu-spi-ipi=1",
+  "-no_slto_panic",
+  "ml-timeout-lock-panic-scale=40",
+]
+
+# Fixups of signed text, applied by the kernel after signature validation (patches/xnu/native-text-fixup.patch); they reach it as
+# /chosen/text-fixups, not on the command line. Each is <file name>,<file offset>,<original>,<replacement>, in hex.
+# The sheng set is keyed to iPadOS 21H461 binaries and is independent of the phone, so it carries over unchanged.
+text_fixups = [
+  # +[AWAttentionAwarenessConfiguration initialize] (21H461) only forces +[AWClientPreferences initialize] and deadlocks
+  # SpringBoard startup against it (ABBA between the main thread and Siri's SASMyriadController); it returns at once instead.
+  "dyld_shared_cache_arm64.15,421e8bc,28ad1bb0008544f9,c0035fd6008544f9",
+  # PosterBoardServices: PRSPosterPathURLResourceValues and PRSPosterPathFileAttributes require NSFileProtectionNone, which a Data
+  # volume without data protection never reports, so PosterBoard's data store is never viable ("Failed to migrate to Version 61
+  # from 59") and no poster, hence no wallpaper, is ever made. Both dictionaries keep only their first entry (readable / POSIX mode).
+  "dyld_shared_cache_arm64.13,1b05bec,44008052,24008052",
+  "dyld_shared_cache_arm64.13,1b05b08,44008052,24008052",
+  # BTAudioHALPlugin's factory returns NULL, so audiomxd skips it: with bluetoothd disabled the plugin reconnects to the
+  # missing com.apple.BTAudioHALPlugin.xpc in a tight loop (about 2700 times a second, millions of log lines, one core busy).
+  "BTAudioHALPlugin,38bec,ffc300d1f44f01a9,000080d2c0035fd6",
+]
+
+# No [payload.install] yet. That section adds a second boot menu entry that erases and
+# re-seeds the Data volume, and payload.py:180 refuses the whole step without a seed:
+#
+#   board.toml [payload.install] needs a Data seed: pass --data-ramdisk FILE
+#
+# popsicle has no Data seed. One is not something this repository can produce: sheng's came
+# from the tablet, and scripts/prepare-owner-data-fixture.py builds one with `hdiutil` from a
+# mounted copy of the supplied OS (`.cache/firmware/target-volumes/os-mount`), which is a
+# macOS + installed-OS prerequisite. Declaring the entry anyway would make every `step:
+# payload` dispatch fail at that check for a capability the port does not have.
+#
+# First bring-up does not need it: without a seed the payload boots straight into the xnu
+# entry, which is all that is being tested. Add the section back — with a real seed, and
+# `--data-ramdisk` in the workflow — once the display is up.
+
+[payload.adt]
+tool = "scripts/make-popsicle-adt.py"
+chip_id = "207"
+owned_memory_size = "0x130000000"
+root_match_volume_uuid = "04769D26-2CA0-4825-B443-E2E5F88300F2"
+# canoe.dtsi puts cpu0..cpu5 at Affinity1 0x000..0x500 and the two prime cores at 0x10000/0x10100.
+# make-popsicle-adt.py refuses reg > 0xffff, so only the six performance cores are declared for now;
+# raising the cap is what turns on the second cluster.
+cpu_regs = "0,0x100,0x200,0x300,0x400,0x500"
+packed_data_ramdisk = true
+persistent_data = true               # popsicle-data-persist keeps Data writes, so Data is not ephemeral storage
+ipad_identity = true
+unique_chip_id = "required"          # the platform seed is not stored in any repository
+
+# Image parameters come from the Mu-Silicium device config; [bootimg.image] would override them.
+
+# No [[bootimg.dtb_node]] entry here, unlike sheng.
+#
+# The stock ABL powers the panel off when the device tree has no splash region, so sheng has to add
+# one. popsicle's merged tree already carries it, with the label the bootloader looks for:
+#
+#   /reserved-memory/splash_region  phandle 226
+#     label = "cont_splash_region"
+#     reg   = <0x0 0xfc800000 0x0 0x2b00000>
+#
+# Adding the node again fails: scripts/unixnu/bootimg.py patches with `fdtput -c`, which errors with
+# FDT_ERR_EXISTS on a node that is already there. If a future tree loses the node, re-add it here with
+# the reg above; the entry only works while the node is absent.

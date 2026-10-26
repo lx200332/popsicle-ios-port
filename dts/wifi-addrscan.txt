@@ -1,0 +1,21 @@
+## owners of reg "0x0 0xb0000000":
+  /soc/qcom,cnss-peach@b0000000  (phandle 0x6ee)  compatible="qcom,cnss-peach"
+## owners of reg containing "f000000" (TLMM + pmic pinctrl base):
+## owners of reg containing "8800":
+  /soc/qcom,qupv3_2_geni_se@8c0000/i2c@880000  (phandle 0x558)  compatible="qcom,i2c-geni"
+  /soc/qcom,qupv3_2_geni_se@8c0000/spi@880000  (phandle 0x559)  compatible="qcom,spi-geni"
+  /soc/qcom,qupv3_2_geni_se@8c0000/i3c-master@880000  (phandle 0x55a)  compatible="qcom,geni-i3c"
+## owners of reg containing "100000":
+  /reserved-memory/pdp_ns_shared_region@81f00000  (phandle 0x39a)  compatible=-
+  /reserved-memory/pvm_fw_region@824a0000  (phandle 0x3a0)  compatible=-
+  /reserved-memory/tz_stat_region@82700000  (phandle 0x3a1)  compatible=-
+  /soc/clock-controller@100000  (phandle 0x47)  compatible="qcom,canoe-gcc", "syscon"
+  /soc/apps-smmu@15000000  (phandle 0x6b)  compatible="qcom,qsmmu-v500"
+  /soc/ssusb@a600000  (phandle 0x580)  compatible="qcom,dwc-usb3-msm"
+  /soc/pcie@1c00000  (phandle 0x5a9)  compatible="qcom,pci-msm"
+  /soc/qcom,cvp@2400000  (phandle 0x692)  compatible="qcom,msm-cvp", "qcom,canoe-cvp"
+## owners of reg containing "c400000":
+  /soc/arbiter@c400000  (phandle 0x69)  compatible="qcom,canoe-spmi-pmic-arb"
+
+## phandle 0x9 (thermal-sensors parent):
+  /soc/psci/cpu-pd3

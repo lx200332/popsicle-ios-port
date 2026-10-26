@@ -1,0 +1,28 @@
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.c text eol=lf
+*.cpp text eol=lf
+*.h text eol=lf
+*.mm text eol=lf
+*.rs text eol=lf
+*.json text eol=lf
+# Patches must keep the byte layout they were generated with. The edk2 files they
+# rewrite are stored with CRLF at the pin, and a patch whose context lines had their
+# CRLF stripped no longer applies to them:
+#
+#   git apply --check  Usb-Bus.patch (CRLF)  onto UsbBus.h (CRLF)   -> applies
+#   git apply --check  Usb-Bus.patch (LF)    onto UsbBus.h (CRLF)   -> patch does not apply
+#
+# So mark them -text: no end-of-line conversion on checkout or commit, in either
+# direction. The -whitespace part stays so a console diff does not paint every line.
+# scripts/check-patches-at-pin.py catches a regression here by applying the committed
+# bytes to a tree fetched from the pin.
+*.patch -text !eol -whitespace
+*.png binary
+*.jpg binary
+*.efi binary
+*.dtb binary
+*.bin binary
+*.a binary
+*.o binary

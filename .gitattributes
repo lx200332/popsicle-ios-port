@@ -1,0 +1,24 @@
+# 统一换行，避免 Windows checkout 后与 Linux 构建脚本冲突
+* text=auto eol=lf
+*.sh    text eol=lf
+*.py    text eol=lf
+*.c     text eol=lf
+*.h     text eol=lf
+*.mjs   text eol=lf
+*.json  text eol=lf
+*.toml  text eol=lf
+
+# 二进制：禁止任何换行/编码转换
+*.dtb   binary
+*.fd    binary
+*.img   binary
+*.bin   binary
+*.efi   binary
+*.macho binary
+*.dylib binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+
+# 补丁必须保持生成时的字节布局（CRLF 上下文被改写就 apply 不上）
+*.patch -text !eol -whitespace

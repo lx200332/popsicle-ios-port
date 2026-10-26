@@ -1,0 +1,61 @@
+# Kernel configuration of the popsicle image. CONFIG_XNU_<NAME> becomes XNU_<NAME> for the kernel build.
+#
+# Ported from sheng_defconfig (Xiaomi Pad 6S Pro, SM8550). This is the first-bring-up subset: it builds the
+# SoC-generic platform expert, the CPU driver, the timer, AES, UFS and the VirtIO/RAM block transports, plus
+# the pieces XNU needs to start at all. The sheng board options are absent because their code is absent:
+#
+#   CONFIG_XNU_SHENG_PMGR         - PMGR is an SM8550 driver; canoe needs its own (kits/popsicle)
+#   CONFIG_XNU_BOOT_PROGRESS      - build-boot-progress.py compiles kits/sheng/BootProgress.c
+#   CONFIG_XNU_NATIVE_LEGACY_DISPLAY / CONFIG_XNU_NATIVE_ADRENO
+#                                 - SM8550 GPU/display register map; canoe is Adreno 840
+#   CONFIG_XNU_VERIFIED_ROOT_PROBE / CONFIG_XNU_OWNER_ROOT_AUDIT / CONFIG_XNU_OWNER_ROOT_TRUST
+#                                 - these additionally want a mounted owner root and an audit trail;
+#                                   they come back once the image reaches userland
+#   CONFIG_XNU_OWNER_CACHE_* / CONFIG_XNU_OWNER_BOOT_MANIFEST / CONFIG_XNU_OWNER_DATA_MOUNT /
+#   CONFIG_XNU_OWNER_UNION_SYSTEMOS
+#                                 - they mount the iPadOS volumes through the owner root of trust, so they
+#                                   come back together with the verified-root group, once there is a Data
+#                                   volume and a UFS root to mount
+#
+# WHY CRYPTO_BOOTSTRAP IS "prelinked"
+# ----------------------------------
+# build-xnu-4k-baseline.sh:162-165 refuses NATIVE_AES unless CRYPTO_BOOTSTRAP=prelinked:
+#
+#     if [ "${XNU_NATIVE_AES:-0}" = 1 ]; then
+#       if [ "$CRYPTO_BOOTSTRAP_MODE" != prelinked ] || [ "${XNU_SOURCE_CORECRYPTO14:-0}" != 1 ]; then
+#         echo 'NativeAES currently requires the qualified original AES/crypto prelink closure' >&2
+#         exit 1
+#
+# and NATIVE_VIRTIO_BLOCK (:166-171) and NATIVE_RAM_BLOCK (:182-187) both require NATIVE_AES, so the
+# whole storage group is gated on the same mode. "prelinked" means prng_random.o is compiled with
+# -UXNU_SOURCE_CORECRYPTO14: the kernel does not ship its own crypto provider, it uses the original
+# com.apple.kec.corecrypto that the prelink step merges out of the Apple kernelcache.
+#
+# That is affordable here because [ipsw] in board.toml is the same image sheng uses (iPad7,1 / 17.7.11 /
+# 21H461) and unixnu.lock pins the same xnu commit. kernelcache_sha256, slide, early_security_init and the
+# roots list are properties of THAT kernelcache, not of our kernel, so they carry over unchanged -- see
+# [kernel.prelink] in board.toml. The earlier plan to build a self-contained "source" kernel would have
+# forced NATIVE_AES/VIRTIO/RAM_BLOCK off, and without hardware AES there is no APFS to mount anyway.
+
+CONFIG_XNU_BUILD_ARCHIVES=y
+CONFIG_XNU_SOURCE_CORECRYPTO14=y
+CONFIG_XNU_SOURCE_PTHREAD=y
+CONFIG_XNU_ARM_DT_PLATFORM=y
+CONFIG_XNU_ARMCPU=y
+CONFIG_XNU_NATIVE_UFS=y
+CONFIG_XNU_NATIVE_AES=y
+CONFIG_XNU_NATIVE_VIRTIO_BLOCK=y
+CONFIG_XNU_NATIVE_RAM_BLOCK=y
+CONFIG_XNU_TRUST_CACHE_RUNTIME=y
+CONFIG_XNU_SOURCE_MOCKFS=y
+CONFIG_XNU_NATIVE_CS_HASH_CACHE=y
+CONFIG_XNU_DT_PANIC_REGION=y
+CONFIG_XNU_ZONE_PGZ_ALIGNMENT_PROBE=y
+CONFIG_XNU_NATIVE_ARCH_TIMER=y
+CONFIG_XNU_NATIVE_PAN=y
+
+# build-xnu-4k-baseline.sh accepts only "source" or "prelinked" here.
+CONFIG_XNU_CRYPTO_BOOTSTRAP="prelinked"
+CONFIG_XNU_EXTRA_LD_ARCHIVES=""
+CONFIG_XNU_NATIVE_MOBILE_DISPLAY=n
+CONFIG_XNU_ARMVIRT_PLATFORM=n
