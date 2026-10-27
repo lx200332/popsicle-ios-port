@@ -25,6 +25,18 @@ debug=0x8 serial=3 cpus=8 keepsyms=1 -noprogress rd=ufsroot0 ufsrw=1 rootrw=1
 | `loader-ct5-boot.img.gz` | 6.4 MB | `1745d730ad2db289` | 16 | ct4 + 插件 `clientDevice` 两处机器码（`0x5bc4` nop、`0x5bcc` 换成 `/private/var/tmp/`）+ 新 trust cache | ★★ GPU 真正提交：`PANDORA GPU SUBMIT 1000 submissions avg 41 us`，DCVS busy 0%→17%，`WATCH submit 1325 / fence 1328`，Metal draw/pipe/tex/viewport 全跑；闪屏消失 |
 | `loader-wl1-boot.img.gz` | 6.5 MB | `8cf885e701238c13` | 16 | ct4 + 内核 5 处 PCI device ID `0x1107`(kiwi)→`0x110e`(peach) + cmdline 加 `fuxiwlan=1` | 待真机验证。这是**首次尝试启动 fuxi_wlan**（此前 `FUXI WLAN` 日志恒 0 行）。期望看到 `FUXI WLAN: enabled` + 前 13 步（不需要固件那段）；17–28 步需要 `/usr/local/share/fuxi/wlan/amss20.bin`，本机 rootfs 里没有 |
 
+`loader-red4` → `red7` 这条主线（内核驱动线）的镜像**不入库**：`*.img` / `*.img.gz`
+都被 `.gitignore` 排除，仓库里只留构建记录。四轮的 sha256、cmdline 与逐轮差异
+全部记在 `../内核驱动-进度-20261027.md` §15–18，需要镜像时按同一份文档里的
+`build_red7.sh` 重新构建即可（构建脚本本身也在该文档的脚本清单里）。
+
+| 轮次 | 原始 img sha256 | 内容 |
+|---|---|---|
+| red4 | `b0c069cd6efaec59…` | d6 内核，首次带 `pandora_bt` |
+| red5 | `b9a49f120645a6b5…` | + `phone-fwall.adt` 128 MiB 合成 extents |
+| red6 | `0d05d2a8eb51146f…` | d8 内核，+ `pandora_modem`，extents 修到 2275 |
+| red7 | `c3b209689481408a…` | d9 内核，+ `pandora_thermal`，cmdline 596 B |
+
 ## 完整 sha256（原始 img，非 .gz）
 
 ```
@@ -47,6 +59,9 @@ f50941f0c7e1dc5c6be5064a15f3cdb746c8a81686f8f144177db116ee4feef8  loader-p6-boot
 | p6 | ct4 + 内核里 P6 两处 cave（不影响 boot-arg） |
 | ct5 | p6 同 cmdline；差异全在 rootfs 与插件，不在 boot-arg |
 | wl1 | ct5 同 cmdline + 末位 `fuxiwlan=1`（605 B / 608，余 3 B） |
+| red4 / red5 | wl1 + `pandora_adsp=2 pandora_files=1 pandora_amp=1 pandora_bt=7`（内核换 d6，含 `pandora_bt`） |
+| red6 | red5 去掉 `pandora_amp=1`、加 `pandora_modem=2`（606 B，内核 d8 含 `pandora_modem`） |
+| red7 | red6 收窄 `sweetiolog` 为 `lsd,SpringBoard` + 加 `pandora_thermal=1`（596 B，内核 d9 含 `pandora_thermal`） |
 
 ## 共同的内核补丁
 

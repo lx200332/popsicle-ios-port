@@ -21,13 +21,18 @@
 | 桌面切换不闪屏 | ✅ 深帧缓冲 `b3a8` 被 nocopy 转成 `fmt 204` |
 | SpringBoard 完全启动 / 应用可用 | ❌ fence 回收异常（7001+ 次 timeout）+ 464 次 CRASH |
 | WiFi（fuxi_wlan） | ⚠️ 源码已在核心里（28 步 PCIe0+MHI+BHI），首次以 `fuxiwlan=1` 上机验证中；本机 PCI ID 已从 `0x1107` 修正为 `0x110e` |
-| 蓝牙 / 基带 | ❌ 内核无对应驱动（不是编译问题，是从零写驱动栈） |
+| 音频 ADSP（`pandora_adsp` / combined mdt / 功放） | ✅ 驱动与 `pas_load` 改造已编入 `loader-red3`→`red7`；固件读不到的问题已定位到 extents pin（见 §17.7） |
+| 蓝牙（`pandora_bt.c`） | 🟡 从零写出（上游零代码），已编入内核；**尚未上机验证** |
+| 基带 MSS（`pandora_modem.c`） | 🟡 从零写出 + prelink d8，已编入 `loader-red6` / `red7`；**尚未上机验证** |
+| 热管理（`pandora_thermal.c`） | 🟡 从零写出（97 个 thermal zone / 7 个 tsens 控制器），已编入 `loader-red7`；**尚未上机验证** |
+| 显示（`AppleCLCD`） | 🟡 审计完成，未改代码。`SWEET_PANEL_BL_MAX 0x1554` 用错面板（本机应为 `0x1fff`），待 red8 |
 
 ## 目录
 
 ```
-*.md                     进度与结论文档（34 篇，建议先读 STATUS-进度总结）
+*.md                     进度与结论文档（建议先读 STATUS-进度总结）
 popsicle_*.c             驱动源码：audio / camera / fp / goodix / modem / syna / wifi
+drivers/pandora/         本轮从零写的三份驱动：pandora_bt.c / pandora_modem.c / pandora_thermal.c
 dts/                     设备树（merged dtb / overlay / canoe base）
 boots/                   真机验证过的 fastboot boot 镜像（.img.gz）+ 里程碑索引
 UniXNU-popsicle/         另一条路线（UEFI + BootShim）的板级包
@@ -58,6 +63,7 @@ popsiclePkg/             空占位（实际包在 UniXNU-popsicle/firmware 下�
 | `路线A实验-LS_NO_SERVER-20261027.md` | LS_NO_SERVER 路线实测失败（语义取反）+ 回滚记录 |
 | `死锁收口与dyld补丁-20261025.md` | lsd / SpringBoard 冻结链与三处 dyld 补丁 |
 | `gpuplk-三连实验-20261025.md` | GPU 三轮上机实验记录 |
+| `内核驱动-进度-20261027.md` | 内核驱动主线（19 节）：导出符号 / prelink / ADSP combined mdt / 蓝牙 / 基带 MSS / 热管理 / 显示审计 |
 | `手机实测SOP.md` | 上机操作标准流程 |
 | `触控移植笔记.md` | S3910P 触摸从 stopped 到 running |
 
