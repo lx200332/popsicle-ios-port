@@ -46,6 +46,7 @@
 #include <vm/pmap.h>
 
 extern kern_return_t thread_terminate(thread_t);
+void pandora_modem_init(void);
 
 #define MD_PAS_MAIN   4u          /* canoe_mpss_resource +0x24 : modem.mdt as extra image */
 #define MD_PAS_DTB    38u         /* canoe_mpss_resource +0x28 : modem_dtb.mdt, auth_and_reset */

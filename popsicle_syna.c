@@ -84,10 +84,12 @@
 #include <pexpert/pexpert.h>
 #include <sys/redwood_input.h>
 #include <sys/systm.h>
+#include <vm/pmap.h>	/* VM_WIMG_IO for ml_io_map_unmappable */
 
 extern void redwood_tl(const char *format, ...) __printflike(1, 2);
 
 extern vm_offset_t ml_io_map(vm_offset_t phys_addr, vm_size_t size);
+extern vm_offset_t ml_io_map_unmappable(vm_offset_t phys_addr, vm_size_t size, uint32_t wimg);
 extern vm_offset_t ml_io_map_wcomb(vm_offset_t phys_addr, vm_size_t size);
 extern kern_return_t thread_terminate(thread_t thread);
 
@@ -324,7 +326,7 @@ io_supply_on(void)
  * redwood_goodix.c L263-350, with the qupv3_4 values */
 
 #define GCC_PHYS                0x00100000UL    /* DTB /soc/clock-controller@100000 */
-#define GCC_SIZE                0x60000UL
+#define GCC_SIZE                0x001f4200UL    /* DT /soc/clock-controller@100000 reg size (fdtget 0x1f4200); window must cover 0x52018 / 0xa90a8 actually read */
 /*
  * The qupv3_4 branch enables share one CBCR (the plan §1, gcc-kaanapali.c structs
  * gcc_qupv3_wrap4_*): enable_reg 0x52018, enable_mask BIT(n). Every halt register is
@@ -1456,10 +1458,10 @@ syna_thread(__unused void *parameter, __unused wait_result_t result)
 	}
 	idle_looks = 80000 / poll_us;   /* a report read every 80 ms even with the line high, in case it is missed */
 
-	tlmm = ml_io_map(TLMM_PHYS, TLMM_SIZE);
-	gcc = ml_io_map(GCC_PHYS, GCC_SIZE);
-	se = ml_io_map(SE_PHYS, SE_SIZE);
-	rsc = ml_io_map(RSC_PHYS, RSC_SIZE);
+	tlmm = ml_io_map_unmappable(TLMM_PHYS, TLMM_SIZE, VM_WIMG_IO);
+	gcc = ml_io_map_unmappable(GCC_PHYS, GCC_SIZE, VM_WIMG_IO);
+	se = ml_io_map_unmappable(SE_PHYS, SE_SIZE, VM_WIMG_IO);
+	rsc = ml_io_map_unmappable(RSC_PHYS, RSC_SIZE, VM_WIMG_IO);
 	cmd_db = ml_io_map_wcomb(CMD_DB_PHYS, CMD_DB_SIZE);      /* memory, not registers: no alignment rules */
 
 	if (!bring_up()) {

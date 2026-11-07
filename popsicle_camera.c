@@ -28,15 +28,17 @@
 #include <mach/mach_types.h>
 #include <pexpert/pexpert.h>
 #include <sys/systm.h>
+#include <vm/pmap.h>	/* VM_WIMG_IO for ml_io_map_unmappable */
 
 extern vm_offset_t ml_io_map(vm_offset_t phys_addr, vm_size_t size);
+extern vm_offset_t ml_io_map_unmappable(vm_offset_t phys_addr, vm_size_t size, uint32_t wimg);
 extern void ml_io_unmap(vm_offset_t addr, vm_size_t sz);
 extern kern_return_t thread_terminate(thread_t thread);
 
 /* ------------------------------------------------------------------ board facts */
 
-#define TLMM_PHYS               0x0f000000UL    /* /soc/pinctrl@f000000 (popsicle); NOT redwood's 0x0f100000 */
-#define TLMM_SIZE               0x00210000UL
+#define TLMM_PHYS               0x0f100000UL    /* TRUE base: pinctrl-canoe.ko pin table = 0x100000 + 0x1000*n (wsl/pandora_touch.c:8-10); DT /soc/pinctrl@f000000 reg=<0x0f000000 0x202000> is the pre-offset base. 0x0f0xxxxx hangs the bus. */
+#define TLMM_SIZE               0x00210000UL    /* >= DT 0x202000, covers 132 pins at 0x1000 stride */
 
 #define CCI0_PHYS               0x0941b000UL    /* qcom,cci0@941b000 */
 #define CCI1_PHYS               0x0941c000UL
@@ -52,8 +54,8 @@ extern kern_return_t thread_terminate(thread_t thread);
 #define GPIO_RST_S2             3
 #define GPIO_RST_S3             15
 
-#define TLMM_CFG(pin)           (0x1000 + (pin) * 0x10)
-#define TLMM_IO(pin)            (0x1004 + (pin) * 0x10)
+#define TLMM_CFG(pin)           ((pin) * 0x1000)
+#define TLMM_IO(pin)            ((pin) * 0x1000 + 4)
 
 static vm_offset_t tlmm, cci0, cci1, cci2;
 
@@ -109,23 +111,23 @@ camera_thread(__unused void *parameter, __unused wait_result_t result)
 {
 	printf("popsicle_camera: 4-sensor OFILM survey, boot-arg camera_probe=1\n");
 
-	tlmm = ml_io_map(TLMM_PHYS, TLMM_SIZE);
-	cci0 = ml_io_map(CCI0_PHYS, CCI_SIZE);
-	cci1 = ml_io_map(CCI1_PHYS, CCI_SIZE);
-	cci2 = ml_io_map(CCI2_PHYS, CCI_SIZE);
+	tlmm = ml_io_map_unmappable(TLMM_PHYS, TLMM_SIZE, VM_WIMG_IO);
+	cci0 = ml_io_map_unmappable(CCI0_PHYS, CCI_SIZE, VM_WIMG_IO);
+	cci1 = ml_io_map_unmappable(CCI1_PHYS, CCI_SIZE, VM_WIMG_IO);
+	cci2 = ml_io_map_unmappable(CCI2_PHYS, CCI_SIZE, VM_WIMG_IO);
 	if (tlmm == 0 || cci0 == 0 || cci1 == 0 || cci2 == 0) {
 		printf("popsicle_camera: cannot map TLMM/CCI\n");
 		if (tlmm != 0) {
-			ml_io_unmap(tlmm, TLMM_SIZE);
+/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
 		}
 		if (cci0 != 0) {
-			ml_io_unmap(cci0, CCI_SIZE);
+/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
 		}
 		if (cci1 != 0) {
-			ml_io_unmap(cci1, CCI_SIZE);
+/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
 		}
 		if (cci2 != 0) {
-			ml_io_unmap(cci2, CCI_SIZE);
+/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
 		}
 		thread_terminate(current_thread());
 		return;
@@ -136,11 +138,10 @@ camera_thread(__unused void *parameter, __unused wait_result_t result)
 
 	printf("popsicle_camera: survey done (pin levels are the boot-loader state; "
 	       "no sensor transaction was issued -- no writes)\n");
-
-	ml_io_unmap(cci2, CCI_SIZE);
-	ml_io_unmap(cci1, CCI_SIZE);
-	ml_io_unmap(cci0, CCI_SIZE);
-	ml_io_unmap(tlmm, TLMM_SIZE);
+/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
+/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
+/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
+/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
 	thread_terminate(current_thread());
 }
 

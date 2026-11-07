@@ -1,0 +1,20 @@
+--- a/bsd/conf/files
++++ b/bsd/conf/files
+@@ -134,6 +134,17 @@
+ bsd/dev/pandora_cpu.c			standard
+ bsd/dev/pandora_autoswipe.c		standard
+ bsd/dev/pandora_dpu.c			standard
++bsd/dev/pandora_bt.c		standard
++bsd/dev/pandora_modem.c		standard
++bsd/dev/pandora_thermal.c		standard
++bsd/dev/popsicle_wifi.c		standard
++bsd/dev/popsicle_audio.c		standard
++bsd/dev/popsicle_camera.c		standard
++bsd/dev/popsicle_fp.c		standard
++bsd/dev/popsicle_modem.c		standard
++bsd/dev/popsicle_syna.c		standard
++bsd/dev/popsicle_goodix.c		standard
++bsd/dev/redwood_input.c		standard
+ bsd/dev/adreno/ArmSmmu4K.c		standard
+ bsd/dev/adreno/ArmSmmu4KContext.c		standard
+ bsd/dev/adreno/ArmSmmu4KProgram.c		standard

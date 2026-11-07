@@ -359,7 +359,22 @@ tt_scan(int *group_max, int *all_max, unsigned *valid_count)
  * the vtable of IOService is not something a .c file should touch, and the
  * event symbol has to be created with OSSymbol::withCString.
  */
-extern void sweet_thermal_notify(int level);   /* iokit/.../SweetPlatformExpert.cpp */
+/* PANDORA-SHIM: SweetPlatformExpert.cpp does not export sweet_thermal_notify in this
+ * kernel -- its 105 defined symbols are all FastPlatformExpert*, no thermal ones.  Keep the
+ * request in a static counter so the value survives for the log line, and never reference the
+ * missing symbol: a weak *declaration* is not a definition, and weak_import relocations are not
+ * something this kernel link accepts.  Publishing to IOPMrootDomain::systemPowerEventOccurred()
+ * is an open item that needs a small C++ helper. */
+static int tt_last_level;
+/* Filled in by iokit/Kernel/arm/SweetPlatformExpert.cpp: the event has to be an
+ * OSSymbol and IOPMrootDomain is C++, so the call is made from there. */
+extern void sweet_thermal_publish(int level);
+static void
+tt_publish_level(int level)
+{
+	tt_last_level = level;
+	sweet_thermal_publish(level);
+}
 
 static void
 tt_publish(int all_max)
@@ -373,15 +388,15 @@ tt_publish(int all_max)
 	if (level && !tt.warned) {
 		tt.warned = 1;
 		tt.sent_warn++;
-		sweet_thermal_notify(level);
-		printf("PANDORA THERMAL: %.1f C >= warn, level %d sent\n",
-		    all_max / 10.0, level);
+		tt_publish_level(level);
+		printf("PANDORA THERMAL: %d.%d C >= warn, level %d sent\n",
+		    all_max / 10, all_max % 10, level);
 	} else if (!level && tt.warned) {
 		tt.warned = 0;
 		tt.sent_clear++;
-		sweet_thermal_notify(0);        /* kIOPMThermalLevelNormal */
-		printf("PANDORA THERMAL: %.1f C, back to normal\n",
-		    all_max / 10.0);
+		tt_publish_level(0);            /* kIOPMThermalLevelNormal */
+		printf("PANDORA THERMAL: %d.%d C, back to normal\n",
+		    all_max / 10, all_max % 10);
 	}
 }
 

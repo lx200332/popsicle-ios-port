@@ -34,19 +34,21 @@
 #include <mach/mach_types.h>
 #include <pexpert/pexpert.h>
 #include <sys/systm.h>
+#include <vm/pmap.h>	/* VM_WIMG_IO for ml_io_map_unmappable */
 
 extern vm_offset_t ml_io_map(vm_offset_t phys_addr, vm_size_t size);
+extern vm_offset_t ml_io_map_unmappable(vm_offset_t phys_addr, vm_size_t size, uint32_t wimg);
 extern void ml_io_unmap(vm_offset_t addr, vm_size_t sz);
 extern kern_return_t thread_terminate(thread_t thread);
 
 /* ------------------------------------------------------------------ board facts */
 
-#define TLMM_PHYS               0x0f000000UL    /* /soc/pinctrl@f000000 (popsicle); NOT redwood's 0x0f100000 */
-#define TLMM_SIZE               0x00210000UL
+#define TLMM_PHYS               0x0f100000UL    /* TRUE base: pinctrl-canoe.ko pin table = 0x100000 + 0x1000*n (wsl/pandora_touch.c:8-10); DT /soc/pinctrl@f000000 reg=<0x0f000000 0x202000> is the pre-offset base. 0x0f0xxxxx hangs the bus. */
+#define TLMM_SIZE               0x00210000UL    /* >= DT 0x202000, covers 132 pins at 0x1000 stride */
 #define GENI_I2C_PHYS           0x01980000UL    /* i2c@1980000, the qupv3_3 engine (Cirrus trio) */
 #define GENI_I2C_SIZE           0x00004000UL
 #define GCC_PHYS                0x00100000UL    /* /soc/clock-controller@100000 */
-#define GCC_SIZE                0x00010000UL
+#define GCC_SIZE                0x001f4200UL    /* DT /soc/clock-controller@100000 reg size (fdtget 0x1f4200); 0x10000/0x60000 was smaller than the 0x52018 / 0xa90a8 offsets actually read */
 
 #define GPIO_CIRRUS_B_RST       10
 #define GPIO_CIRRUS_T_RST       54
@@ -58,8 +60,8 @@ extern kern_return_t thread_terminate(thread_t thread);
 #define GPIO_TDM_SD1            124
 #define GPIO_EARPIECE_SW        174
 
-#define TLMM_CFG(pin)           (0x1000 + (pin) * 0x10)
-#define TLMM_IO(pin)            (0x1004 + (pin) * 0x10)
+#define TLMM_CFG(pin)           ((pin) * 0x1000)
+#define TLMM_IO(pin)            ((pin) * 0x1000 + 4)
 
 /* GCC wrap3 branch-enable CBCR shared by the qupv3_3 engine (from the touch work:
  * gcc-kaanapali.c; this is the same engine family as the GT9615 SPI) */
@@ -126,19 +128,19 @@ audio_thread(__unused void *parameter, __unused wait_result_t result)
 {
 	printf("popsicle_audio: WCD9395/Cirrus survey, boot-arg audio_probe=1\n");
 
-	tlmm = ml_io_map(TLMM_PHYS, TLMM_SIZE);
-	geni = ml_io_map(GENI_I2C_PHYS, GENI_I2C_SIZE);
-	gcc = ml_io_map(GCC_PHYS, GCC_SIZE);
+	tlmm = ml_io_map_unmappable(TLMM_PHYS, TLMM_SIZE, VM_WIMG_IO);
+	geni = ml_io_map_unmappable(GENI_I2C_PHYS, GENI_I2C_SIZE, VM_WIMG_IO);
+	gcc = ml_io_map_unmappable(GCC_PHYS, GCC_SIZE, VM_WIMG_IO);
 	if (tlmm == 0 || geni == 0 || gcc == 0) {
 		printf("popsicle_audio: cannot map TLMM/GENI/GCC\n");
 		if (tlmm != 0) {
-			ml_io_unmap(tlmm, TLMM_SIZE);
+/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
 		}
 		if (geni != 0) {
-			ml_io_unmap(geni, GENI_I2C_SIZE);
+/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
 		}
 		if (gcc != 0) {
-			ml_io_unmap(gcc, GCC_SIZE);
+/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
 		}
 		thread_terminate(current_thread());
 		return;
@@ -150,10 +152,9 @@ audio_thread(__unused void *parameter, __unused wait_result_t result)
 
 	printf("popsicle_audio: survey done (pin levels are the boot-loader state; no I2C "
 	       "transaction was issued -- no writes)\n");
-
-	ml_io_unmap(gcc, GCC_SIZE);
-	ml_io_unmap(geni, GENI_I2C_SIZE);
-	ml_io_unmap(tlmm, TLMM_SIZE);
+/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
+/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
+/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
 	thread_terminate(current_thread());
 }
 

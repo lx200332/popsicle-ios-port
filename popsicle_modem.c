@@ -34,8 +34,10 @@
 #include <mach/mach_types.h>
 #include <pexpert/pexpert.h>
 #include <sys/systm.h>
+#include <vm/pmap.h>	/* VM_WIMG_IO for ml_io_map_unmappable */
 
 extern vm_offset_t ml_io_map(vm_offset_t phys_addr, vm_size_t size);
+extern vm_offset_t ml_io_map_unmappable(vm_offset_t phys_addr, vm_size_t size, uint32_t wimg);
 extern void ml_io_unmap(vm_offset_t addr, vm_size_t sz);
 extern kern_return_t thread_terminate(thread_t thread);
 
@@ -44,7 +46,7 @@ extern kern_return_t thread_terminate(thread_t thread);
 #define IPA_PHYS                0x03e00000UL    /* qcom,ipa@3e00000 reg[0] */
 #define IPA_SIZE                0x00090000UL    /* 84000 + 0xf800 rounded up */
 #define GCC_PHYS                0x00100000UL    /* /soc/clock-controller@100000 */
-#define GCC_SIZE                0x00010000UL
+#define GCC_SIZE                0x001f4200UL    /* DT /soc/clock-controller@100000 reg size (fdtget 0x1f4200); window must cover 0x52018 / 0xa90a8 actually read */
 
 static vm_offset_t ipa, gcc;
 
@@ -80,16 +82,27 @@ modem_thread(__unused void *parameter, __unused wait_result_t result)
 {
 	printf("popsicle_modem: IPA/modem survey, boot-arg modem_probe=1\n");
 
-	ipa = ml_io_map(IPA_PHYS, IPA_SIZE);
-	gcc = ml_io_map(GCC_PHYS, GCC_SIZE);
+	/*
+	 * The IPA window is not readable in every power state: a boot with just
+	 * modem_probe=1 took a synchronous external abort (ESR 0x96000010) on the
+	 * first word read, pc in modem_thread. The identity reads stay behind a
+	 * second, explicit switch; the survey prints what it knows without them.
+	 */
+	int deep = 0;
+	if (!PE_parse_boot_argn("modem_deep", &deep, sizeof(deep)) || !deep) {
+		printf("popsicle_modem: identity reads off (modem_deep=1 reads the IPA "
+		    "window and can abort)\n");
+		printf("popsicle_modem: the modem firmware is BLOCKED on the QCOM PIL-TZ "
+		    "signature chain (modem.mdt + ipa_fws, no hackios modem framework "
+		    "in this tree)\n");
+		thread_terminate(current_thread());
+		return;
+	}
+
+	ipa = ml_io_map_unmappable(IPA_PHYS, IPA_SIZE, VM_WIMG_IO);
+	gcc = ml_io_map_unmappable(GCC_PHYS, GCC_SIZE, VM_WIMG_IO);
 	if (ipa == 0 || gcc == 0) {
 		printf("popsicle_modem: cannot map IPA/GCC\n");
-		if (ipa != 0) {
-			ml_io_unmap(ipa, IPA_SIZE);
-		}
-		if (gcc != 0) {
-			ml_io_unmap(gcc, GCC_SIZE);
-		}
 		thread_terminate(current_thread());
 		return;
 	}
@@ -98,13 +111,12 @@ modem_thread(__unused void *parameter, __unused wait_result_t result)
 	modem_step_gcc();
 
 	printf("popsicle_modem: survey done; the modem firmware is BLOCKED on the QCOM "
-	       "PIL-TZ signature chain (modem.mdt + ipa_fws, no hackios modem framework "
-	       "in this tree) -- the identity reads above are all that is safe without it; no writes)\n");
-
-	ml_io_unmap(gcc, GCC_SIZE);
-	ml_io_unmap(ipa, IPA_SIZE);
+	    "PIL-TZ signature chain (modem.mdt + ipa_fws, no hackios modem framework "
+	    "in this tree) -- the identity reads above are all that is safe without "
+	    "it; no writes\n");
 	thread_terminate(current_thread());
 }
+
 
 /* ---- the entry point ------------------------------------------------------------------------------
  * popsicle_syna.c L1502-1515: PE_parse_boot_argn("modem_probe"), then the thread. */

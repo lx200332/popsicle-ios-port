@@ -24,6 +24,7 @@ debug=0x8 serial=3 cpus=8 keepsyms=1 -noprogress rd=ufsroot0 ufsrw=1 rootrw=1
 | `loader-p6-boot.img.gz` | 6.4 MB | `f50941f0c7e1dc5c` | 16 | ct4 + P6 GPU 留痕（externalMethod ENTRY / PROBE cave） | PANDORA GPU ENTRY 与 PROBE 均 0 次 → externalMethod 从未被调用；插件探完三个子类型后放弃 |
 | `loader-ct5-boot.img.gz` | 6.4 MB | `1745d730ad2db289` | 16 | ct4 + 插件 `clientDevice` 两处机器码（`0x5bc4` nop、`0x5bcc` 换成 `/private/var/tmp/`）+ 新 trust cache | ★★ GPU 真正提交：`PANDORA GPU SUBMIT 1000 submissions avg 41 us`，DCVS busy 0%→17%，`WATCH submit 1325 / fence 1328`，Metal draw/pipe/tex/viewport 全跑；闪屏消失 |
 | `loader-wl1-boot.img.gz` | 6.5 MB | `8cf885e701238c13` | 16 | ct4 + 内核 5 处 PCI device ID `0x1107`(kiwi)→`0x110e`(peach) + cmdline 加 `fuxiwlan=1` | 待真机验证。这是**首次尝试启动 fuxi_wlan**（此前 `FUXI WLAN` 日志恒 0 行）。期望看到 `FUXI WLAN: enabled` + 前 13 步（不需要固件那段）；17–28 步需要 `/usr/local/share/fuxi/wlan/amss20.bin`，本机 rootfs 里没有 |
+| `loader-red8b-boot.img.gz` | 6.6 MB | `636ebb45f68d67a4` | 16 | 本机全量重建：CI 重编内核（含三处适配）+ 用 IPSW 原厂 kernelcache 预链接 11 个 kext（AMFI / AppleImage4 / AppleARMPlatform 等）+ ADT 带 `/product` 与 extents/GPU 池/MAC | 待真机验证 |
 
 `loader-red4` → `red7` 这条主线（内核驱动线）的镜像**不入库**：`*.img` / `*.img.gz`
 都被 `.gitignore` 排除，仓库里只留构建记录。四轮的 sha256、cmdline 与逐轮差异
@@ -47,6 +48,7 @@ df1625dc884a4e0ae44444f3547ce7a91e7b7c01671b938e13a123597b2768c8  loader-ct1-boo
 f50941f0c7e1dc5c6be5064a15f3cdb746c8a81686f8f144177db116ee4feef8  loader-p6-boot.img
 1745d730ad2db28989a39db60fbf6640bdf47d06733d03876d776e497b7d4cf7  loader-ct5-boot.img
 8cf885e701238c136d26e68bc9254d8f205b1e8503c71f9f5c33d1ad11f4ed1e  loader-wl1-boot.img
+8f8cd7f3ac4e20dfbd614224378a3edab0bb2d77cac3ac29423545cdec3a89c7  loader-red8b-boot.img
 ```
 
 ## 关键 cmdline 差异
@@ -62,6 +64,7 @@ f50941f0c7e1dc5c6be5064a15f3cdb746c8a81686f8f144177db116ee4feef8  loader-p6-boot
 | red4 / red5 | wl1 + `pandora_adsp=2 pandora_files=1 pandora_amp=1 pandora_bt=7`（内核换 d6，含 `pandora_bt`） |
 | red6 | red5 去掉 `pandora_amp=1`、加 `pandora_modem=2`（606 B，内核 d8 含 `pandora_modem`） |
 | red7 | red6 收窄 `sweetiolog` 为 `lsd,SpringBoard` + 加 `pandora_thermal=1`（596 B，内核 d9 含 `pandora_thermal`） |
+| red8 | 与 red7 完全相同的 596 B cmdline；差异全在内核（几何 1200x2608、背光上限 0x1fff、WiFi 0x110e）与 ADT（`/product` + extents + GPU 池 + MAC） |
 
 ## 共同的内核补丁
 

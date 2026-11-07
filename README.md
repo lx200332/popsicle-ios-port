@@ -8,24 +8,33 @@
 
 ## 当前状态
 
+> **2026-11-07 更正**：下表里「SpringBoard 起来 + 锁屏 + 设置向导 ✅」只对 **ct3 / ct5 时代的产物**成立——
+> 那些 image 的 rootfs 里带着手工施加的 `sweet-root-tweaks.py`。11-04 重建 rootfs 后
+> 那套 tweak 没再跑过，系统退回到 BootUI 阶段。当前真实现状、根因链与九条上机判据见
+> **[`STATUS-20261107-实测与查漏补缺.md`](STATUS-20261107-实测与查漏补缺.md)**。
+>
+> 一句话：**BootUI（苹果 logo + 进度条）从头到尾没消失过**，因为 SpringBoard 主线程永远停在
+> `-[BKSSystemShellService _checkIn]`，而 backboardd 侧在等 `com.apple.datamigrator` 的 XPC 回复。
+> 用户看到的「恢复界面」是 backboardd 的 BootUI 覆盖层，不是恢复模式、不是固件残留。
+
 | 里程碑 | 状态 |
 |---|---|
 | 内核启动到 `exec launchd` | ✅ |
 | bypass AMFI / CT policy / dyld 缓存签名 | ✅ |
 | `Early boot complete` | ✅ |
-| SpringBoard 起来 + 锁屏 + 设置向导 | ✅ |
+| SpringBoard 起来 + 锁屏 + 设置向导 | ⚠️ 仅 ct3 / ct5 产物成立（rootfs 带 tweak）；11-04 之后重建的 rootfs 实测退回到 BootUI |
 | 物理按键（电源 / 音量±） | ✅ |
 | 触摸（Synaptics S3910P，`pandora_touch=0xf`） | ✅ |
 | 刷新率上限 60 Hz | ✅ |
 | **GPU 提交（Metal → AGX）** | ✅ `PANDORA GPU SUBMIT 1000 submissions avg 41 us`，DCVS busy 0%→17% |
 | 桌面切换不闪屏 | ✅ 深帧缓冲 `b3a8` 被 nocopy 转成 `fmt 204` |
-| SpringBoard 完全启动 / 应用可用 | ❌ fence 回收异常（7001+ 次 timeout）+ 464 次 CRASH |
+| SpringBoard 完全启动 / 应用可用 | ❌ 卡在 `_checkIn` → backboardd 等 `com.apple.datamigrator`；BootUI 不 dismiss |
 | WiFi（fuxi_wlan） | ⚠️ 源码已在核心里（28 步 PCIe0+MHI+BHI），首次以 `fuxiwlan=1` 上机验证中；本机 PCI ID 已从 `0x1107` 修正为 `0x110e` |
 | 音频 ADSP（`pandora_adsp` / combined mdt / 功放） | ✅ 驱动与 `pas_load` 改造已编入 `loader-red3`→`red7`；固件读不到的问题已定位到 extents pin（见 §17.7） |
 | 蓝牙（`pandora_bt.c`） | 🟡 从零写出（上游零代码），已编入内核；**尚未上机验证** |
 | 基带 MSS（`pandora_modem.c`） | 🟡 从零写出 + prelink d8，已编入 `loader-red6` / `red7`；**尚未上机验证** |
-| 热管理（`pandora_thermal.c`） | 🟡 从零写出（97 个 thermal zone / 7 个 tsens 控制器），已编入 `loader-red7`；**尚未上机验证** |
-| 显示（`AppleCLCD`） | 🟡 审计完成，未改代码。`SWEET_PANEL_BL_MAX 0x1554` 用错面板（本机应为 `0x1fff`），待 red8 |
+| 热管理（`pandora_thermal.c`） | ✅ 已达信 IOPMrootDomain（`sweet_thermal_publish`）；此前 111.4 C 不降频的根因是本轮修掉的 |
+| 显示（`AppleCLCD`） | ✅ 面板几何 1200×2608 / stride 4800、`SWEET_PANEL_BL_MAX 0x1fff` 已编入内核 |
 
 ## 目录
 
@@ -52,7 +61,8 @@ popsiclePkg/             空占位（实际包在 UniXNU-popsicle/firmware 下�
 
 | 文档 | 内容 |
 |---|---|
-| `STATUS-进度总结-20261025.md` | 全阶段进度总览 |
+| `STATUS-20261107-实测与查漏补缺.md` | **最新**：三轮上机实测结论、卡死链定位到指令级、四个代码缺陷、九条验收判据 |
+| `STATUS-进度总结-20261025.md` | 全阶段进度总览（P0 清单，部分条目已过时，见上一行的更正） |
 | `全量审查-20261025.md` | 29 项 bug / 缺陷逐条审查 |
 | `项目交接文档.md` | 从零接手所需的全部环境事实 |
 | `CT放行与ct1构建-20261026.md` | CT policy 拒绝分支的精确补丁点 |

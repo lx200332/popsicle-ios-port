@@ -1,0 +1,87 @@
+diff --git a/security/mac_base.c b/security/mac_base.c
+--- a/security/mac_base.c
++++ b/security/mac_base.c
+@@ -105,6 +105,7 @@
+ #include <security/mac_mach_internal.h>
+ #endif
+ 
++#include <pexpert/pexpert.h>
+ #include <libkern/section_keywords.h>
+ 
+ /*
+@@ -1563,6 +1564,61 @@
+  *                !0                      Not success
+  *
+  */
++#if CONFIG_MACF
++/*
++ * dyld asks the kernel's AMFI policy whether it may use DYLD_* variables and
++ * "@" paths: __sandbox_ms("AMFI", 0x5a, &{input, &output}) -> syscall 381,
++ * this function. Nothing answers that name here: the built-in stand-in is
++ * registered as "SWEET AMFI", and the prelinked Apple kext returns ENOPOLICY
++ * on this path - so dyld marks every process restricted (no DYLD_*, no
++ * @paths, no DYLD_PRINT_*). Answer it ourselves. Boot-arg sweet_dyld_policy=1.
++ *
++ * Struct layout, from dyld's _amfi_check_dyld_policy_self:
++ *   { uint64_t input_flags; uint64_t *output_flags; }
++ * The pointed-to word is pre-poisoned by dyld and read back afterwards.
++ */
++#define SWEET_MAC_OP_AMFI_DYLD_POLICY   0x5a
++#define SWEET_AMFI_DYLD_ALLOW_MASK      0xffULL
++
++struct sweet_amfi_dyld_policy_req {
++	uint64_t        input_flags;
++	user_addr_t     output_flags;
++};
++
++static int
++sweet_dyld_policy_enabled(void)
++{
++	static int on = -1;
++	if (on < 0) {
++		int v = 0;
++		on = PE_parse_boot_argn("sweet_dyld_policy", &v, sizeof(v)) && v != 0;
++		if (on) {
++			printf("SWEET AMFI: dyld policy answered by the kernel\n");
++		}
++	}
++	return on;
++}
++
++static int
++sweet_amfi_dyld_policy(user_addr_t arg)
++{
++	struct sweet_amfi_dyld_policy_req req;
++	uint64_t allow = SWEET_AMFI_DYLD_ALLOW_MASK;
++	int error;
++
++	if (arg == 0) {
++		return EINVAL;
++	}
++	if ((error = copyin(arg, &req, sizeof(req))) != 0) {
++		return error;
++	}
++	if (req.output_flags == 0) {
++		return EINVAL;
++	}
++	return copyout(&allow, req.output_flags, sizeof(allow));
++}
++#endif /* CONFIG_MACF */
++
+ int
+ __mac_syscall(proc_t p, struct __mac_syscall_args *uap, int *retv __unused)
+ {
+@@ -1579,6 +1635,13 @@
+ 	AUDIT_ARG(value32, uap->call);
+ 	AUDIT_ARG(mac_string, target);
+ 
++#if CONFIG_MACF
++	if (uap->call == SWEET_MAC_OP_AMFI_DYLD_POLICY && strcmp(target, "AMFI") == 0 &&
++	    sweet_dyld_policy_enabled()) {
++		return sweet_amfi_dyld_policy(uap->arg);
++	}
++#endif
++
+ 	error = mac_proc_check_mac_syscall(p, target, uap->call);
+ 	if (error) {
+ 		return error;

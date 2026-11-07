@@ -31,21 +31,23 @@
 #include <mach/mach_types.h>
 #include <pexpert/pexpert.h>
 #include <sys/systm.h>
+#include <vm/pmap.h>	/* VM_WIMG_IO for ml_io_map_unmappable */
 
 extern vm_offset_t ml_io_map(vm_offset_t phys_addr, vm_size_t size);
+extern vm_offset_t ml_io_map_unmappable(vm_offset_t phys_addr, vm_size_t size, uint32_t wimg);
 extern void ml_io_unmap(vm_offset_t addr, vm_size_t sz);
 extern kern_return_t thread_terminate(thread_t thread);
 
 /* ------------------------------------------------------------------ board facts */
 
-#define TLMM_PHYS               0x0f000000UL    /* /soc/pinctrl@f000000 (popsicle); NOT redwood's 0x0f100000 */
-#define TLMM_SIZE               0x00210000UL
+#define TLMM_PHYS               0x0f100000UL    /* TRUE base: pinctrl-canoe.ko pin table = 0x100000 + 0x1000*n (wsl/pandora_touch.c:8-10); DT /soc/pinctrl@f000000 reg=<0x0f000000 0x202000> is the pre-offset base. 0x0f0xxxxx hangs the bus. */
+#define TLMM_SIZE               0x00210000UL    /* >= DT 0x202000, covers 132 pins at 0x1000 stride */
 
 #define GPIO_FP_IRQ             99              /* fp_irq: IRQ + IPC line (tlmm 99) */
 #define GPIO_FP_1V8_EN          56              /* fingerprint_1v8_vdd fixed regulator */
 
-#define TLMM_CFG(pin)           (0x1000 + (pin) * 0x10)
-#define TLMM_IO(pin)            (0x1004 + (pin) * 0x10)
+#define TLMM_CFG(pin)           ((pin) * 0x1000)
+#define TLMM_IO(pin)            ((pin) * 0x1000 + 4)
 
 static vm_offset_t tlmm;
 
@@ -74,7 +76,7 @@ fp_thread(__unused void *parameter, __unused wait_result_t result)
 {
 	printf("popsicle_fp: fingerprint survey, boot-arg fp_probe=1\n");
 
-	tlmm = ml_io_map(TLMM_PHYS, TLMM_SIZE);
+	tlmm = ml_io_map_unmappable(TLMM_PHYS, TLMM_SIZE, VM_WIMG_IO);
 	if (tlmm == 0) {
 		printf("popsicle_fp: cannot map TLMM\n");
 		thread_terminate(current_thread());
@@ -89,8 +91,7 @@ fp_thread(__unused void *parameter, __unused wait_result_t result)
 	printf("popsicle_fp: survey done; the sensor SPI bus is NOT in the DTB "
 	       "(blocked on 'SPI 通路无据' -- the four spi@ nodes are ir-spi / GT9615 touch / "
 	       "spi_cnss / syna TCM). Pin levels above are the boot-loader state; no writes)\n");
-
-	ml_io_unmap(tlmm, TLMM_SIZE);
+/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
 	thread_terminate(current_thread());
 }
 

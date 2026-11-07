@@ -1,0 +1,65 @@
+diff --git a/security/mac_vfs.c b/security/mac_vfs.c
+--- a/security/mac_vfs.c
++++ b/security/mac_vfs.c
+@@ -88,6 +88,7 @@
+ #include <miscfs/devfs/fdesc.h>
+ 
+ #include <security/mac_internal.h>
++#include <pexpert/pexpert.h>
+ 
+ /* convert {R,W,X}_OK values to V{READ,WRITE,EXEC} */
+ #define ACCESS_MODE_TO_VNODE_MASK(m)    (m << 6)
+@@ -1324,6 +1325,33 @@
+ 	return error;
+ }
+ 
++#if CONFIG_MACF
++/*
++ * SWEET: escape hatch for the code-signature MACF gate.
++ *
++ * The prelinked AppleMobileFileIntegrity rejects adhoc-signed third-party
++ * bundles (the GPU plugin) and no policy hook can override that: MAC_CHECK
++ * keeps the most severe error across policies, so a permissive extra policy
++ * cannot win. sweet_cs_bypass=1 short-circuits the gate here and applies the
++ * two flags the built-in permissive hook would have applied.
++ */
++static int sweet_cs_bypass_on = -1;
++
++static boolean_t
++sweet_cs_bypass(void)
++{
++	if (sweet_cs_bypass_on < 0) {
++		int on = 0;
++		(void)PE_parse_boot_argn("sweet_cs_bypass", &on, sizeof(on));
++		sweet_cs_bypass_on = on != 0;
++		if (sweet_cs_bypass_on) {
++			printf("SWEET CODESIGN: MACF signature gate bypassed\n");
++		}
++	}
++	return sweet_cs_bypass_on != 0;
++}
++#endif /* CONFIG_MACF */
++
+ int
+ mac_vnode_check_signature(struct vnode *vp, struct cs_blob *cs_blob,
+     struct image_params *imgp,
+@@ -1345,6 +1373,19 @@
+ 		return 0;
+ 	}
+ #endif
++
++#if CONFIG_MACF
++	if (sweet_cs_bypass()) {
++		*cs_flags |= CS_SIGNED;
++		if (vp != NULL) {
++			mount_t mp = vnode_mount(vp);
++			if (mp != NULL && (vfs_flags(mp) & MNT_ROOTFS)) {
++				*cs_flags |= CS_PLATFORM_BINARY;
++			}
++		}
++		return 0;
++	}
++#endif
+ 
+ 	VFS_KERNEL_DEBUG_START1(43, vp);
+ 	MAC_CHECK(vnode_check_signature, vp, mac_vnode_label(vp), cpu_type, cs_blob,

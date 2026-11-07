@@ -63,6 +63,7 @@
 #if defined(PANDORA)
 #include <sys/param.h>
 #include <sys/systm.h>
+#include <vm/pmap.h>	/* VM_WIMG_IO for ml_io_map_unmappable */
 #include <sys/errno.h>
 #include <kern/clock.h>
 #include <kern/thread.h>
@@ -71,6 +72,7 @@
 #include <pexpert/pexpert.h>
 
 extern vm_offset_t ml_io_map(vm_offset_t, vm_size_t);
+extern vm_offset_t ml_io_map_unmappable(vm_offset_t, vm_size_t, uint32_t);
 extern kern_return_t thread_terminate(thread_t);
 extern int pandora_fw_read(uint64_t off, void *dst, uint64_t len);   /* bsd/dev/sweet_ufs.c */
 void pandora_bt_init(void);
@@ -425,8 +427,10 @@ bt_fw_probe(void)
 		name[48] = 0;
 		for (unsigned w = 0; w < sizeof(want) / sizeof(want[0]); w++) {
 			if (!strcmp(name, want[w])) {
-				uint64_t off = *(uint64_t *)(const void *)(ent + 48);
-				uint64_t size = *(uint64_t *)(const void *)(ent + 56);
+				uint64_t off, size;
+
+				memcpy(&off, ent + 48, sizeof(off));
+				memcpy(&size, ent + 56, sizeof(size));
 				printf("PANDORA BT: %s at %#llx, %llu bytes\n", name, off, size);
 				found++;
 			}
@@ -444,9 +448,9 @@ bt_thread(void *arg __unused, wait_result_t wr __unused)
 {
 	printf("PANDORA BT: start, mask %#x (bit0 probe, bit1 power, bit2 uart)\n", bt.mask);
 	bt_fw_probe();
-	bt.gcc = ml_io_map(BT_GCC_PA, BT_GCC_SIZE);
-	bt.tlmm = ml_io_map(BT_TLMM_PA, 0x300000);
-	bt.se = ml_io_map(BT_SE_PA, BT_SE_SIZE);
+	bt.gcc = ml_io_map_unmappable(BT_GCC_PA, BT_GCC_SIZE, VM_WIMG_IO);
+	bt.tlmm = ml_io_map_unmappable(BT_TLMM_PA, 0x300000, VM_WIMG_IO);
+	bt.se = ml_io_map_unmappable(BT_SE_PA, BT_SE_SIZE, VM_WIMG_IO);
 	if (!bt.gcc || !bt.tlmm || !bt.se) {
 		printf("PANDORA BT: mapping failed gcc %p tlmm %p se %p\n",
 		    (void *)bt.gcc, (void *)bt.tlmm, (void *)bt.se);
