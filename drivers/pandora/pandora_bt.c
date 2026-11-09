@@ -45,7 +45,10 @@
  *   bit 0  probe: mux the four UART pins, vote wrapper 3 clocks, dump GCC + SE registers
  *   bit 1  also move sw_ctrl and report the BT_EN path (PMIC, not driven from here)
  *   bit 2  also bring the UART up in FIFO mode and read the firmware's HCI version
- *   bit 3  reserved: upload gngbtfw20 and open H4 (needs the blob inside the pack)
+ *   bit 3  also load gngbtfw20.tlv out of the pack, print its TLV table, open H4
+ *          and run HCI_Reset / Read_Local_Version / Read_BD_ADDR. The vendor
+ *          download is bt_fw_download(), which does not guess an opcode: it says
+ *          what evidence is missing and returns ENOTSUP.
  * pandora_btslow=1 paces the register steps by 20 ms (default 0).
  * pandora_btse=N sets the per-SE GCC stride (default 0x40).
  *
@@ -66,6 +69,7 @@
 #include <vm/pmap.h>	/* VM_WIMG_IO for ml_io_map_unmappable */
 #include <sys/errno.h>
 #include <kern/clock.h>
+#include <kern/kalloc.h>	/* kalloc_data/kfree_data for the bit 3 firmware blob */
 #include <kern/thread.h>
 #include <kern/sched_prim.h>
 #include <machine/machine_routines.h>
@@ -134,6 +138,8 @@ static int bt_chan;     /* assert_wait_deadline's event, same shape pandora_touc
 #define BT_CLK_HZ          19200000u
 
 #define H4_CMD             0x01u
+#define H4_ACL             0x02u
+#define H4_SCO             0x03u
 #define H4_EVT             0x04u
 #define OGF_INFO           0x04u
 #define OCF_READ_VERSION   0x0001u
@@ -402,6 +408,400 @@ bt_hci_cmd(uint16_t op, const uint8_t *par, uint8_t plen, uint8_t *ev, size_t ev
 	return got ? 0 : ETIMEDOUT;
 }
 
+/* ---- bit 3: the firmware blob and H4 -----------------------------------------
+ *
+ * The pack carries gngbtfw20.tlv, and the blob was measured rather than assumed
+ * from a Linux header: the container is ONE TLV -- a u32 little-endian at offset
+ * 0, type in the low byte (1, patch), length in the upper 24 bits (320,724), and
+ * 4 + 320,724 == the file's 320,728 bytes. There is no chain to walk, so the
+ * table printed below is that one row plus the segment plan a download would cut
+ * it into.
+ *
+ * Everything here that needs no vendor opcode is real: the blob is read through
+ * pandora_fw_read(), its header decoded and printed, and H4 is spoken with core
+ * spec commands. The vendor download is bt_fw_download(), which returns ENOTSUP
+ * and names the missing evidence. Nothing in this file invents an opcode.
+ */
+#define BT_FW_MAX          0x100000u   /* 1 MiB, the cap pandora_amp.c:379 applies */
+#define BT_TLV_HDR         4u          /* u32 LE: type [7:0], length [31:8]        */
+#define BT_TLV_TYPE_PATCH  0x01u
+#define BT_TLV_PATCH_HDR   36u         /* payload bytes this header really occupies */
+#define BT_TLV_SEG_DATA    243u        /* btqca.h MAX_SIZE_PER_TLV_SEGMENT          */
+#define BT_TLV_SEG_HDR     2u          /* LE16 segment id in front of each chunk    */
+
+/* One file out of the pinned pack into a kalloc_data buffer; NULL and *out_len 0
+ * when the pack or the entry is missing. Same directory walk as pandora_amp.c:363. */
+static uint8_t *
+bt_fw_load(const char *name, uint32_t *out_len)
+{
+	static uint8_t dir[4096];
+	uint8_t *buf;
+	uint32_t count = 0;
+	uint32_t i;
+	uint64_t off = 0;
+	uint64_t len = 0;
+	int e;
+
+	*out_len = 0;
+	e = pandora_fw_read(0, dir, sizeof(dir));
+	if (e) {
+		printf("PANDORA BT: fw: pack read failed %d\n", e);
+		return NULL;
+	}
+	if (memcmp(dir, "PANDFW01", 8)) {
+		printf("PANDORA BT: fw: pack has no header\n");
+		return NULL;
+	}
+	memcpy(&count, dir + 8, sizeof(count));
+	for (i = 0; i < count && i < 63u; i++) {
+		const uint8_t *ent = dir + 16 + i * 64;
+		char ename[49];
+
+		memcpy(ename, ent, 48);
+		ename[48] = 0;
+		if (strcmp(ename, name)) {
+			continue;
+		}
+		memcpy(&off, ent + 48, sizeof(off));
+		memcpy(&len, ent + 56, sizeof(len));
+		if (!len || len > BT_FW_MAX) {
+			printf("PANDORA BT: fw: %s has unusable size %llu\n", name, len);
+			return NULL;
+		}
+		buf = kalloc_data((vm_size_t)len, Z_WAITOK);
+		if (!buf) {
+			printf("PANDORA BT: fw: cannot allocate %llu bytes\n", len);
+			return NULL;
+		}
+		e = pandora_fw_read(off, buf, len);
+		if (e) {
+			printf("PANDORA BT: fw: %s at %#llx read failed %d\n", name, off, e);
+			kfree_data(buf, (vm_size_t)len);
+			return NULL;
+		}
+		printf("PANDORA BT: fw: %s %llu bytes at %#llx\n", name, len, off);
+		*out_len = (uint32_t)len;
+		return buf;
+	}
+	printf("PANDORA BT: fw: %s not in the pack\n", name);
+	return NULL;
+}
+
+/* The blob carries its own version string; search for it instead of hard-coding
+ * the offset this one sample happens to use (+0x710 of 320,728). */
+static void
+bt_fw_version(const uint8_t *buf, uint32_t len)
+{
+	uint32_t at = len;
+	uint32_t n = 0;
+	uint32_t i;
+
+	for (i = 0; i + 5u <= len; i++) {
+		if (!memcmp(buf + i, "BTFW.", 5)) {
+			at = i;
+			break;
+		}
+	}
+	if (at == len) {
+		printf("PANDORA BT: fw: no BTFW. string in %u bytes\n", len);
+		return;
+	}
+	while (at + n < len && n < 64u && buf[at + n] >= 0x20u && buf[at + n] < 0x7fu) {
+		n++;
+	}
+	printf("PANDORA BT: fw version at +%u: %.*s\n", at, (int)n, (const char *)(buf + at));
+}
+
+/* Patch payload: the fields a segment sender would need, read straight out of the
+ * blob. Where the layout disagrees with Linux's struct tlv_type_patch the
+ * disagreement is reported rather than papered over. */
+static void
+bt_fw_patch(const uint8_t *pay, uint32_t paylen)
+{
+	uint32_t total_size = 0;
+	uint32_t data = 0;
+	uint32_t entry = 0;
+	uint16_t product = 0;
+	uint16_t rom = 0;
+	uint16_t patch = 0;
+	unsigned segs;
+	unsigned i;
+
+	if (paylen < BT_TLV_PATCH_HDR) {
+		printf("PANDORA BT: fw: patch payload %u B is shorter than the %u B header\n",
+		    paylen, BT_TLV_PATCH_HDR);
+		return;
+	}
+	memcpy(&total_size, pay + 0, sizeof(total_size));
+	memcpy(&data, pay + 4, sizeof(data));
+	memcpy(&product, pay + 12, sizeof(product));
+	memcpy(&rom, pay + 14, sizeof(rom));
+	memcpy(&patch, pay + 16, sizeof(patch));
+	memcpy(&entry, pay + 32, sizeof(entry));
+	printf("PANDORA BT: fw: patch total %u data %u format %u signature %u download_mode %u "
+	    "product %#x rom %#x patch %#x entry %#x\n", total_size, data, (unsigned)pay[8],
+	    (unsigned)pay[9], (unsigned)pay[10], (unsigned)product, (unsigned)rom,
+	    (unsigned)patch, entry);
+	printf("PANDORA BT: fw: entry sits at payload+32; Linux's tlv_type_patch ends at +24, "
+	    "so this header is 12 B wider -- vendor layout, no struct for it in the repo\n");
+	if (data > paylen) {
+		printf("PANDORA BT: fw: data_length %u exceeds the %u B payload\n", data, paylen);
+		return;
+	}
+	segs = (data + BT_TLV_SEG_DATA - 1u) / BT_TLV_SEG_DATA;
+	printf("PANDORA BT: fw: plan %u segments of %u B data + %u B id = %u B per command\n",
+	    segs, BT_TLV_SEG_DATA, BT_TLV_SEG_HDR, BT_TLV_SEG_DATA + BT_TLV_SEG_HDR);
+	for (i = 0; i < segs; i++) {
+		uint32_t at = i * BT_TLV_SEG_DATA;
+		uint32_t n = data - at;
+
+		if (n > BT_TLV_SEG_DATA) {
+			n = BT_TLV_SEG_DATA;
+		}
+		if (i < 3u || i + 1u == segs) {
+			printf("PANDORA BT: fw:   seg %u at payload+%u length %u\n", i, at, n);
+		} else if (i == 3u) {
+			printf("PANDORA BT: fw:   ... %u rows elided ...\n", segs - 4u);
+		}
+	}
+}
+
+/* Walk the TLV chain and print tag / length / offset per row. For this blob that
+ * is one row; the loop is a loop because the container is one, and a second TLV
+ * showing up later must not be silently dropped. */
+static int
+bt_fw_parse(const uint8_t *buf, uint32_t len)
+{
+	uint32_t off = 0;
+	unsigned rows = 0;
+
+	printf("PANDORA BT: fw: TLV table over %u B (type = byte 0, length = u32 >> 8)\n", len);
+	while (off + BT_TLV_HDR <= len) {
+		uint32_t tl = 0;
+		uint32_t type;
+		uint32_t plen;
+
+		memcpy(&tl, buf + off, sizeof(tl));
+		type = tl & 0xffu;
+		plen = tl >> 8;
+		printf("PANDORA BT: fw:   row %u at +%u tag %u length %u\n", rows, off, type, plen);
+		rows++;
+		if (plen > len - off - BT_TLV_HDR) {
+			printf("PANDORA BT: fw:   row %u runs past the blob; stop\n", rows);
+			return EINVAL;
+		}
+		if (type == BT_TLV_TYPE_PATCH) {
+			bt_fw_patch(buf + off + BT_TLV_HDR, plen);
+		} else {
+			printf("PANDORA BT: fw:   tag %u is not a patch; not decoded\n", type);
+		}
+		off += BT_TLV_HDR + plen;
+	}
+	if (!rows) {
+		printf("PANDORA BT: fw: no TLV at all in %u B\n", len);
+		return EINVAL;
+	}
+	printf("PANDORA BT: fw: %u TLV row(s), %u B left after the last one\n", rows, len - off);
+	return 0;
+}
+
+/* The vendor download. A skeleton on purpose -- see the note. */
+static int
+bt_fw_download(const uint8_t *tlv, uint32_t len)
+{
+	/* A vendor download is a run of commands in the 0xFC00..0xFCFF range whose
+	 * opcode, parameter layout and completion-event contract belong to the chip
+	 * vendor. This repo has none of that for ganges, and each missing piece is
+	 * load-bearing:
+	 *
+	 *   1. The only published transcription is Linux's QCA path (btqca.h:
+	 *      EDL_PATCH_CMD_OPCODE 0xFC00, EDL_PATCH_TLV_REQ_CMD 0x1E,
+	 *      MAX_SIZE_PER_TLV_SEGMENT 243), and it is a different SoC family:
+	 *      nothing in this repo binds it to ganges. It is cited here, not sent.
+	 *   2. This blob's download_mode is 3 and its entry word sits 12 B further
+	 *      into the header than that struct describes, so the pack was not cut by
+	 *      that tool either. Replaying that tool's sequence is a coin flip.
+	 *   3. Whether this boot ROM takes H4 at all is unmeasured: the reset probe
+	 *      above is the only data point there is, and it is one boot.
+	 *
+	 * A wrong vendor opcode can leave the part wedged until the PMIC cycles it,
+	 * so the honest return is ENOTSUP plus the shape of the missing piece, not a
+	 * guessed constant. */
+	printf("PANDORA BT: fw download: not attempted; %u B staged, first words "
+	    "%02x %02x %02x %02x\n", len, (unsigned)tlv[0], (unsigned)tlv[1],
+	    (unsigned)tlv[2], (unsigned)tlv[3]);
+	printf("PANDORA BT: fw download: missing 1/3 - the btsoc vendor opcode table for "
+	    "ganges; no file in this repo names one\n");
+	printf("PANDORA BT: fw download: missing 2/3 - what download_mode 3 means on this part "
+	    "and which event closes a segment\n");
+	printf("PANDORA BT: fw download: missing 3/3 - a second boot of the reset probe above, "
+	    "to tell a ROM that speaks H4 from one that does not\n");
+	return ENOTSUP;
+}
+
+/* H4 send: one type byte, then the packet. 0x01 command, 0x02 ACL, 0x04 event.
+ * Kept apart from bt_hci_cmd() so bit 2's path stays byte-for-byte unchanged. */
+static int
+bt_h4_send(uint8_t type, const void *pkt, size_t len)
+{
+	int e = bt_se_putc(type);
+
+	if (e) {
+		return e;
+	}
+	return bt_se_write((const uint8_t *)pkt, len);
+}
+
+/* H4 receive: pull the RX FIFO one byte at a time until the packet the header
+ * announces is complete, or the FIFO stays quiet for timeout_ms. Framing is the
+ * core spec one: event 3 + plen, ACL 5 + handle/length, SCO 2 + length. */
+static int
+bt_h4_poll(uint8_t *buf, size_t cap, unsigned timeout_ms)
+{
+	size_t got = 0;
+	size_t want = 0;
+	unsigned idle = 0;
+
+	while (got < cap && (!want || got < want)) {
+		if (!(bt_rd(bt.se, SE_GENI_RX_FIFO_STATUS) & 0xffffu)) {
+			if (idle++ >= timeout_ms) {
+				break;
+			}
+			delay(1);
+			continue;
+		}
+		buf[got++] = (uint8_t)(bt_rd(bt.se, SE_GENI_RX_FIFO) & 0xffu);
+		idle = 0;
+		if (got == 3 && buf[0] == H4_EVT) {
+			want = 3u + (size_t)buf[2];
+		} else if (got == 5 && buf[0] == H4_ACL) {
+			want = 5u + (size_t)buf[3] + ((size_t)buf[4] << 8);
+		} else if (got == 2 && buf[0] == H4_SCO) {
+			want = 2u + (size_t)buf[1];
+		}
+		if (want > cap) {
+			printf("PANDORA BT: h4: packet wants %llu B, buffer is %llu\n",
+			    (unsigned long long)want, (unsigned long long)cap);
+			return -EMSGSIZE;
+		}
+	}
+	if (!got) {
+		return -ETIMEDOUT;
+	}
+	if (want && got < want) {
+		printf("PANDORA BT: h4: short packet %llu of %llu B\n",
+		    (unsigned long long)got, (unsigned long long)want);
+		return -ETIMEDOUT;
+	}
+	return (int)got;
+}
+
+/* One core spec command over H4, then the command complete it must answer with.
+ * Returns the HCI status byte (0 = success), or a local errno. */
+static int
+bt_hci_one(uint16_t op, const uint8_t *par, uint8_t plen, const char *what,
+    uint8_t *ev, size_t evcap)
+{
+	uint8_t cmd[3 + 255];
+	unsigned back;
+	int e;
+	int n;
+	int i;
+
+	cmd[0] = (uint8_t)(op & 0xffu);
+	cmd[1] = (uint8_t)(op >> 8);
+	cmd[2] = plen;
+	if (plen) {
+		memcpy(cmd + 3, par, plen);
+	}
+	e = bt_h4_send(H4_CMD, cmd, 3u + (size_t)plen);
+	if (e) {
+		printf("PANDORA BT: h4 %s: send failed %d\n", what, e);
+		return e;
+	}
+	n = bt_h4_poll(ev, evcap, 2000);
+	if (n <= 0) {
+		printf("PANDORA BT: h4 %s: no answer within 2000 ms\n", what);
+		return ETIMEDOUT;
+	}
+	printf("PANDORA BT: h4 %s: op %#06x ->", what, op);
+	for (i = 0; i < n && i < 24; i++) {
+		printf(" %02x", (unsigned)ev[i]);
+	}
+	printf("\n");
+	if (n < 7 || ev[0] != H4_EVT || ev[1] != 0x0eu) {
+		printf("PANDORA BT: h4 %s: not a command complete\n", what);
+		return EPROTO;
+	}
+	back = (unsigned)ev[4] | ((unsigned)ev[5] << 8);
+	if (back != op) {
+		printf("PANDORA BT: h4 %s: complete is for op %#06x\n", what, back);
+		return EPROTO;
+	}
+	return (int)ev[6];
+}
+
+/* HCI_Reset, then the two reads the Android stack opens with. All three are core
+ * spec opcodes: OGF 0x03 / OCF 0x0003 for the reset, and the same OGF 0x04 pair
+ * bit 2 already uses. */
+static int
+bt_hci_init(void)
+{
+	uint8_t ev[80];
+	int e;
+
+	e = bt_hci_one(0x0c03u, NULL, 0, "reset", ev, sizeof(ev));
+	printf("PANDORA BT: hci reset -> %d\n", e);
+	if (e) {
+		return e;
+	}
+	e = bt_hci_one((uint16_t)((OGF_INFO << 10) | OCF_READ_VERSION), NULL, 0,
+	    "read local version", ev, sizeof(ev));
+	if (e) {
+		printf("PANDORA BT: read local version failed %d\n", e);
+	} else if (ev[2] >= 9u) {
+		printf("PANDORA BT: local hci %u lmp %#x manufacturer %#x subversion %#x\n",
+		    (unsigned)ev[7], (unsigned)ev[10],
+		    (unsigned)ev[11] | ((unsigned)ev[12] << 8),
+		    (unsigned)ev[13] | ((unsigned)ev[14] << 8));
+	}
+	e = bt_hci_one((uint16_t)((OGF_INFO << 10) | OCF_READ_BDADDR), NULL, 0,
+	    "read bd addr", ev, sizeof(ev));
+	if (e) {
+		printf("PANDORA BT: read bd addr failed %d\n", e);
+	} else if (ev[2] >= 7u) {
+		printf("PANDORA BT: bd addr %02x:%02x:%02x:%02x:%02x:%02x\n",
+		    (unsigned)ev[12], (unsigned)ev[11], (unsigned)ev[10],
+		    (unsigned)ev[9], (unsigned)ev[8], (unsigned)ev[7]);
+	}
+	return e;
+}
+
+/* bit 3's whole path, in the order the hardware wants it: the blob first, so a
+ * missing blob is one line instead of a timeout, then the H4 probe, then the
+ * download that cannot run yet. */
+static int
+bt_bit3(void)
+{
+	uint32_t len = 0;
+	uint8_t *buf;
+	int e;
+
+	buf = bt_fw_load("gngbtfw20.tlv", &len);
+	if (!buf) {
+		printf("PANDORA BT: bit3: no gngbtfw20.tlv in the pack; firmware path stops\n");
+		return ENOENT;
+	}
+	bt_fw_version(buf, len);
+	e = bt_fw_parse(buf, len);
+	(void)bt_hci_init();
+	if (!e) {
+		e = bt_fw_download(buf, len);
+	}
+	kfree_data(buf, (vm_size_t)len);
+	return e;
+}
+
 static int
 bt_fw_probe(void)
 {
@@ -502,6 +902,9 @@ bt_thread(void *arg __unused, wait_result_t wr __unused)
 		}
 	}
 	(void)bt_hci_cmd((OGF_INFO << 10) | OCF_READ_BDADDR, NULL, 0, ev, 12);
+	if (bt.mask & 8u) {
+		(void)bt_bit3();
+	}
 out:
 	printf("PANDORA BT: done\n");
 	(void)thread_terminate(current_thread());
