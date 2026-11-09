@@ -17,11 +17,31 @@
  *     glink mpss/QRTR/DS, SMP2P modem;
  *   - reserved-memory: mpss_region, ipa_fw_region@99580000, ipa_gsi_region@99590000.
  *
- * Survey steps (all reads, no writes):
- *   step 1 - IPA HW version word (0x3e00000 + 0x0); the version register answers
- *            without any clock vote in the UEFI environment we run in;
- *   step 2 - IPA hw-version/compat words (0x3e40000 block, safe identity reads);
- *   step 3 - the GCC modem branch CBCR (which modem clocks XBL left voted).
+ * Survey order -- step 1 is deliberately the safe one, because it is also the
+ * link-up evidence step 2 needs:
+ *   step 1 - the GCC modem/ipa branch CBCR pair (0x52008/0x5200c): which modem and
+ *            ipa clocks XBL/ABL left voted. GCC sits in the always-on domain and
+ *            pandora_bt.c bt_clock_dump()/bt_clock_scan() already read this exact
+ *            window on this board, so it answers in every power state.
+ *   step 2 - the IPA identity words (0x3e00000+0x0/0x4 and the 0x3e40000 block).
+ *            These do NOT answer in every power state: a boot with just
+ *            modem_probe=1 took a synchronous external abort (ESR 0x96000010) on
+ *            the first word, pc in modem_thread, because the IPA was neither
+ *            powered nor link-up and an unclocked register read faults the bus.
+ *            Every one of these reads therefore goes through modem_ipa_rd(), which
+ *            refuses unless boot-arg modem_ipa_read allows it AND step 1 says the
+ *            branch is clocked. Each call prints exactly one line: either
+ *            "skipped (ipa not up: ...)" or "= 0x... (read)".
+ *            The IPA window is not even mapped when the gate cannot open, so a
+ *            zero gate cannot reach a NULL/short mapping either.
+ *
+ * Boot args:
+ *   modem_probe=1      start the survey thread (absent/0: nothing runs)
+ *   modem_ipa_read=0   skip every IPA read                                    (default)
+ *   modem_ipa_read=1   read the IPA, but only while the GCC branch clock is up
+ *   modem_ipa_read=2   read the IPA regardless of the clock evidence; this is the
+ *                      only setting that can still panic, and it is opt-in
+ *   modem_deep=1       retired name, still accepted as modem_ipa_read=1
  *
  * Blocked on: QCOM PIL-TZ firmware signature chain (modem.mdt + ipa_fws) -- the
  * firmware cannot be loaded without the TZ-authenticated PAS handoff, and no
@@ -41,6 +61,8 @@ extern vm_offset_t ml_io_map_unmappable(vm_offset_t phys_addr, vm_size_t size, u
 extern void ml_io_unmap(vm_offset_t addr, vm_size_t sz);
 extern kern_return_t thread_terminate(thread_t thread);
 
+void popsicle_modem_init(void);
+
 /* ------------------------------------------------------------------ board facts */
 
 #define IPA_PHYS                0x03e00000UL    /* qcom,ipa@3e00000 reg[0] */
@@ -48,7 +70,21 @@ extern kern_return_t thread_terminate(thread_t thread);
 #define GCC_PHYS                0x00100000UL    /* /soc/clock-controller@100000 */
 #define GCC_SIZE                0x001f4200UL    /* DT /soc/clock-controller@100000 reg size (fdtget 0x1f4200); window must cover 0x52018 / 0xa90a8 actually read */
 
+/* GCC modem/ipa branch CBCR pair; pandora_bt.c bt_clock_dump reads the same words. */
+#define GCC_MD_CBCR             0x52008UL
+#define GCC_MD_CBCR_ALT         0x5200cUL
+
+/* Interval where the modem and ipa GCC branches live (pandora_bt.c bt_clock_scan). */
+#define GCC_CBCR_OFF_BIT        0x80000000u     /* bit31 set means that branch is OFF */
+
+/* modem_ipa_read values. */
+#define IPA_GATE_OFF            0
+#define IPA_GATE_CLOCK          1
+#define IPA_GATE_FORCE          2
+
 static vm_offset_t ipa, gcc;
+static int ipa_gate = IPA_GATE_OFF;     /* boot-arg modem_ipa_read */
+static bool ipa_linked;                 /* step 1 says the modem/ipa branch is up */
 
 static void
 modem_survey_print(const char *what, uint32_t value)
@@ -56,64 +92,116 @@ modem_survey_print(const char *what, uint32_t value)
 	printf("popsicle_modem: %s = 0x%x\n", what, value);
 }
 
-/* Step 1+2: IPA identity reads. The version word is safe in any power state. */
-static void
-modem_step_ipa(void)
-{
-	modem_survey_print("ipa hw version word0", *(volatile uint32_t *)(ipa + 0x0));
-	modem_survey_print("ipa hw version word1", *(volatile uint32_t *)(ipa + 0x4));
-	/* the second reg block sits at 0x40000 into the IPA window */
-	modem_survey_print("ipa block2 word0", *(volatile uint32_t *)(ipa + 0x40000));
-	modem_survey_print("ipa block2 word1", *(volatile uint32_t *)(ipa + 0x40004));
-}
-
-/* Step 3: GCC state left by XBL -- which modem/ipa branches are still voted on. */
+/*
+ * Step 1: GCC state left by XBL/ABL. Safe in every power state, and the answer is
+ * the link-up evidence step 2 is gated on. bt_clock_scan prints "off" for a CBCR
+ * word with bit31 set and "ON" otherwise; the same rule decides ipa_linked.
+ */
 static void
 modem_step_gcc(void)
 {
-	modem_survey_print("gcc ipa/modem cbcr probe (0x52008)", *(volatile uint32_t *)(gcc + 0x52008));
-	modem_survey_print("gcc ipa/modem cbcr probe (0x5200c)", *(volatile uint32_t *)(gcc + 0x5200c));
+	uint32_t cbcr = *(volatile uint32_t *)(gcc + GCC_MD_CBCR);
+	uint32_t alt = *(volatile uint32_t *)(gcc + GCC_MD_CBCR_ALT);
+
+	modem_survey_print("gcc ipa/modem cbcr probe (0x52008)", cbcr);
+	modem_survey_print("gcc ipa/modem cbcr probe (0x5200c)", alt);
+	ipa_linked = cbcr != 0xffffffffu && alt != 0xffffffffu &&
+	    !(cbcr & GCC_CBCR_OFF_BIT) && !(alt & GCC_CBCR_OFF_BIT);
+	printf("popsicle_modem: gcc modem/ipa branch clock %s -> IPA window %s\n",
+	    ipa_linked ? "ON" : "off",
+	    ipa_linked ? "plausibly up" : "not up (no link-up evidence)");
+}
+
+/*
+ * Step 2 gate. One IPA read, or one refusal -- never both, and never a read the
+ * gate did not clear. ipa is non-zero whenever this can reach the dereference.
+ */
+static void
+modem_ipa_rd(const char *what, vm_offset_t offset)
+{
+	if (ipa_gate == IPA_GATE_OFF) {
+		printf("popsicle_modem: %s: skipped (ipa not up: modem_ipa_read=0)\n", what);
+		return;
+	}
+	if (ipa_gate == IPA_GATE_CLOCK && !ipa_linked) {
+		printf("popsicle_modem: %s: skipped (ipa not up: gcc branch clock off)\n", what);
+		return;
+	}
+	printf("popsicle_modem: %s = 0x%x (read, modem_ipa_read=%d)\n", what,
+	    *(volatile uint32_t *)(ipa + offset), ipa_gate);
+}
+
+/* Step 2: IPA identity reads, every one behind modem_ipa_rd(). */
+static void
+modem_step_ipa(void)
+{
+	modem_ipa_rd("ipa hw version word0", 0x0);
+	modem_ipa_rd("ipa hw version word1", 0x4);
+	/* the second reg block sits at 0x40000 into the IPA window */
+	modem_ipa_rd("ipa block2 word0", 0x40000);
+	modem_ipa_rd("ipa block2 word1", 0x40004);
 }
 
 /* ---- the thread ---------------------------------------------------------------------------------
- * popsicle_wifi.c shape: run once, print, unmap, exit. */
+ * popsicle_wifi.c shape: run once, print, unmap, exit. Every mapping failure goes
+ * to out the way pandora_bt.c:454 does, so the thread always unmaps what it took
+ * and always terminates. */
 static void
 modem_thread(__unused void *parameter, __unused wait_result_t result)
 {
+	int deep = 0;
+
 	printf("popsicle_modem: IPA/modem survey, boot-arg modem_probe=1\n");
 
-	/*
-	 * The IPA window is not readable in every power state: a boot with just
-	 * modem_probe=1 took a synchronous external abort (ESR 0x96000010) on the
-	 * first word read, pc in modem_thread. The identity reads stay behind a
-	 * second, explicit switch; the survey prints what it knows without them.
-	 */
-	int deep = 0;
-	if (!PE_parse_boot_argn("modem_deep", &deep, sizeof(deep)) || !deep) {
-		printf("popsicle_modem: identity reads off (modem_deep=1 reads the IPA "
-		    "window and can abort)\n");
-		printf("popsicle_modem: the modem firmware is BLOCKED on the QCOM PIL-TZ "
-		    "signature chain (modem.mdt + ipa_fws, no hackios modem framework "
-		    "in this tree)\n");
-		thread_terminate(current_thread());
-		return;
+	(void)PE_parse_boot_argn("modem_ipa_read", &ipa_gate, sizeof(ipa_gate));
+	(void)PE_parse_boot_argn("modem_deep", &deep, sizeof(deep));
+	if (deep && ipa_gate == IPA_GATE_OFF) {
+		ipa_gate = IPA_GATE_CLOCK;
+		printf("popsicle_modem: modem_deep=1 is the retired name, using modem_ipa_read=1\n");
 	}
+	if (ipa_gate < IPA_GATE_OFF || ipa_gate > IPA_GATE_FORCE) {
+		printf("popsicle_modem: modem_ipa_read=%d is out of range, using 0\n", ipa_gate);
+		ipa_gate = IPA_GATE_OFF;
+	}
+	printf("popsicle_modem: modem_ipa_read=%d (0 skips every IPA read, 1 needs the GCC "
+	    "branch clock, 2 forces)\n", ipa_gate);
 
-	ipa = ml_io_map_unmappable(IPA_PHYS, IPA_SIZE, VM_WIMG_IO);
+	/* GCC first: always clocked, and it carries the link-up evidence. */
 	gcc = ml_io_map_unmappable(GCC_PHYS, GCC_SIZE, VM_WIMG_IO);
-	if (ipa == 0 || gcc == 0) {
-		printf("popsicle_modem: cannot map IPA/GCC\n");
-		thread_terminate(current_thread());
-		return;
+	if (!gcc) {
+		printf("popsicle_modem: cannot map the GCC window\n");
+		goto out;
 	}
-
-	modem_step_ipa();
 	modem_step_gcc();
 
+	if (ipa_gate == IPA_GATE_OFF) {
+		printf("popsicle_modem: IPA window left unmapped (modem_ipa_read=0)\n");
+		goto out;
+	}
+	if (ipa_gate == IPA_GATE_CLOCK && !ipa_linked) {
+		printf("popsicle_modem: IPA window left unmapped: no link-up evidence "
+		    "(modem_ipa_read=2 reads it anyway)\n");
+		goto out;
+	}
+	ipa = ml_io_map_unmappable(IPA_PHYS, IPA_SIZE, VM_WIMG_IO);
+	if (!ipa) {
+		printf("popsicle_modem: cannot map the IPA window\n");
+		goto out;
+	}
+	modem_step_ipa();
+
+out:
+	if (ipa) {
+		ml_io_unmap(ipa, IPA_SIZE);
+		ipa = 0;
+	}
+	if (gcc) {
+		ml_io_unmap(gcc, GCC_SIZE);
+		gcc = 0;
+	}
 	printf("popsicle_modem: survey done; the modem firmware is BLOCKED on the QCOM "
 	    "PIL-TZ signature chain (modem.mdt + ipa_fws, no hackios modem framework "
-	    "in this tree) -- the identity reads above are all that is safe without "
-	    "it; no writes\n");
+	    "in this tree) -- the reads above are all that is safe without it; no writes\n");
 	thread_terminate(current_thread());
 }
 
