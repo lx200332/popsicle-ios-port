@@ -152,6 +152,7 @@ extern kern_return_t kernel_thread_start_priority(thread_continue_t continuation
 
 void pandora_thermal_init(void);
 int  pandora_thermal_read(int *max_cpu, int *max_gpu, int *max_ddr, int *max_all);
+void pandora_thermal_state(int *level, unsigned *gpu_cap, unsigned *changes);
 
 /* ---- TSENS controllers, from live-fdt.dtb (see header) ------------------------ */
 #define TS_NCTRL   7u
@@ -233,6 +234,11 @@ static struct {
 	unsigned	reports;
 	unsigned	sent_warn;
 	unsigned	sent_clear;
+	int		act_level;	/* level last acted on by tt_apply_level */
+	unsigned	act_gpu_cap;	/* GPU level cap written, 0 = none      */
+	unsigned	act_changes;	/* level changes acted on                */
+	unsigned	act_gpu_writes;	/* times pandora_gpu_thermal_top written */
+	int		act_gpu;	/* 1 = cap the GPU (pandora_thermal_gpucap) */
 } tt;
 static int tt_chan;
 
@@ -307,7 +313,7 @@ tt_choose_bank(void)
 				}
 			}
 		}
-		printf("PANDORA THERMAL: bank %s: %u/%u valid, %u/%u in "
+		printf("PANDORA THERMAL: [tsens] bank %s: %u/%u valid, %u/%u in "
 		    "-40.0..150.0 C\n", ts_bank_name[b], valid, total,
 		    plausible, total);
 		if (valid && plausible * 2u >= total) {
@@ -369,11 +375,120 @@ static int tt_last_level;
 /* Filled in by iokit/Kernel/arm/SweetPlatformExpert.cpp: the event has to be an
  * OSSymbol and IOPMrootDomain is C++, so the call is made from there. */
 extern void sweet_thermal_publish(int level);
+/* ---- cooling actions: the consumer side of the warning ----------------------- */
+/*
+ * tt_publish_level() told IOPMrootDomain how hot the die is; nothing in the
+ * kernel then spent less power, which is why the phone still reached 111.4 C
+ * in 210 s with the GPU pinned at 1200 MHz and 43 % busy. This is the part
+ * that acts.
+ *
+ * The only lever this tree really has today is the GPU's level cap.
+ * bsd/dev/pandora_gpu.c exports no function for it, but it exports the two
+ * symbols its DCVS thread re-reads every 16 ms and applies over every other
+ * reason to raise a level (pandora_gpu.c:3890-3893):
+ *     uint32_t       pandora_gpu_thermal_top    junction cap, 0 = no cap (0213)
+ *     const uint32_t pandora_gpu_level_count    = NGPU - 1 = 18, a compile-time
+ *                                                constant, so it only tells us
+ *                                                the table exists, never whether
+ *                                                the DCVS thread is running
+ * A level is an index into gpu_opps[] (pandora_gpu.c:1023): level 1 = 160 MHz,
+ * level 18 = 1200 MHz, and gpu_vote() sends gpu_opp_bw[level-1] with it. Writing
+ * the cap before the thread is up is harmless -- it reads the variable fresh on
+ * every tick -- which is why no other gate is needed here.
+ * bsd/dev/pandora_therm.c:293-294 already declares both from a .c file, so
+ * this is a link the tree is known to satisfy, not a new one.
+ *
+ * pandora_cpu.c's own 100 ms junction governor (pandora_cpu.c:626-641) reads
+ * the same variable and steps it one level around whatever it finds, and walks
+ * it back up as the die cools. A value written here is therefore the starting
+ * point that governor refines, not a hard clamp -- which is the cascade this
+ * driver wants, but it also means the cap must be re-asserted on every level
+ * change, and that is exactly what tt_apply_level() does.
+ */
+#define TT_GPU_CAP_NONE  0u	/* pandora_gpu.c's own "no cap" value      */
+#define TT_GPU_CAP_WARN  10u	/* gpu_opps[9] = 578 MHz, level 100        */
+#define TT_GPU_CAP_TRAP   5u	/* gpu_opps[4] = 342 MHz, level 110        */
+
+extern uint32_t pandora_gpu_thermal_top;	/* bsd/dev/pandora_gpu.c */
+extern const uint32_t pandora_gpu_level_count;	/* bsd/dev/pandora_gpu.c */
+
+static uint32_t
+tt_gpu_cap_for(int level)
+{
+	if (!tt.act_gpu) {
+		return TT_GPU_CAP_NONE;
+	}
+	if (level >= 110) {
+		return TT_GPU_CAP_TRAP;
+	}
+	if (level >= 100) {
+		return TT_GPU_CAP_WARN;
+	}
+	return TT_GPU_CAP_NONE;
+}
+
+/*
+ * level: 0 = normal, 100 = kIOPMThermalLevelWarning, 110 = kIOPMThermalLevelTrap.
+ * Every action checks its interface before it is used and only ever prints on
+ * failure: a missing cap must never take the boot down with it.
+ */
+static void
+tt_apply_level(int level)
+{
+	const int changed = level != tt.act_level;
+	uint32_t cap = TT_GPU_CAP_NONE;
+
+	/* (1) GPU: cap the level the DCVS thread may raise to. */
+	if (pandora_gpu_level_count > 1) {
+		cap = tt_gpu_cap_for(level);
+		if (cap >= pandora_gpu_level_count) {
+			cap = pandora_gpu_level_count - 1;
+		}
+		__atomic_store_n(&pandora_gpu_thermal_top, cap,
+		    __ATOMIC_RELAXED);
+		if (changed) {
+			tt.act_gpu_writes++;
+		}
+	} else if (changed) {
+		printf("PANDORA THERMAL: [tsens] level %d: no GPU level table "
+		    "(%u levels), cap skipped\n", level,
+		    pandora_gpu_level_count);
+	}
+	tt.act_gpu_cap = cap;
+
+	/*
+	 * (2) CPU: nothing is claimed here. canoe has no EPSS (this file's
+	 * header and bsd/dev/pandora_cpu.c both prove it) and its SCMI has no
+	 * performance-domain protocol, so the one CPU-side path certain to
+	 * exist is the power-management event that (3) already carries to
+	 * IOPMrootDomain::systemPowerEventOccurred() through
+	 * sweet_thermal_publish(). The two candidate interfaces stay TODO:
+	 *   TODO(M3) pandora_cpu_body_cap(khz0, khz6) in bsd/dev/pandora_cpu.c
+	 *     is real and is already called by pandora_therm.c:292, but the kHz
+	 *     to ask for at each level has to come from the phone's own OPP
+	 *     ladder (D:\ios\popsicle-port\extract), not from a guess here.
+	 *   TODO(M3) sched_perfcontrol / thread-group QoS clamping: this tree
+	 *     exports no helper for it, and taking policy away from the
+	 *     scheduler thread is a wider change than one driver should make.
+	 */
+
+	/* (3) State for sysctl / the boot log, via pandora_thermal_state(). */
+	tt.act_level = level;
+	if (changed) {
+		tt.act_changes++;
+		printf("PANDORA THERMAL: [tsens] level %d applied: gpu cap %u "
+		    "of %u levels%s, cpu unchanged\n", level, cap,
+		    pandora_gpu_level_count,
+		    tt.act_gpu ? "" : " (pandora_thermal_gpucap=0)");
+	}
+}
+
 static void
 tt_publish_level(int level)
 {
 	tt_last_level = level;
 	sweet_thermal_publish(level);
+	tt_apply_level(level);
 }
 
 static void
@@ -389,13 +504,13 @@ tt_publish(int all_max)
 		tt.warned = 1;
 		tt.sent_warn++;
 		tt_publish_level(level);
-		printf("PANDORA THERMAL: %d.%d C >= warn, level %d sent\n",
+		printf("PANDORA THERMAL: [tsens] %d.%d C >= warn, level %d sent\n",
 		    all_max / 10, all_max % 10, level);
 	} else if (!level && tt.warned) {
 		tt.warned = 0;
 		tt.sent_clear++;
 		tt_publish_level(0);            /* kIOPMThermalLevelNormal */
-		printf("PANDORA THERMAL: %d.%d C, back to normal\n",
+		printf("PANDORA THERMAL: [tsens] %d.%d C, back to normal\n",
 		    all_max / 10, all_max % 10);
 	}
 }
@@ -413,22 +528,34 @@ tt_sleep(unsigned ms, int *chan)
 static void
 tt_thread(void *arg, wait_result_t wres)
 {
+	unsigned mapped = 0, map_failed = 0;
+
 	(void)arg;
 	(void)wres;
-	printf("PANDORA THERMAL: %u controllers, %u groups, warn %d dC, "
+	printf("PANDORA THERMAL: [tsens] %u controllers, %u groups, warn %d dC, "
 	    "trap %d dC\n", TS_NCTRL, (unsigned)TS_NGROUP, THERMAL_WARN,
 	    THERMAL_TRAP);
+	printf("PANDORA THERMAL: [tsens] actions: gpu cap %s (level 100 -> %u, "
+	    "level 110 -> %u of %u); cpu: power event only\n",
+	    tt.act_gpu ? "on" : "off (pandora_thermal_gpucap=0)",
+	    TT_GPU_CAP_WARN, TT_GPU_CAP_TRAP, pandora_gpu_level_count);
 
 	for (unsigned c = 0; c < TS_NCTRL; c++) {
 		tt.map[c] = ml_io_map((vm_offset_t)ts_ctrl[c].pa, 0x1000);
 		if (!tt.map[c]) {
-			printf("PANDORA THERMAL: %s map failed (0x%llx)\n",
-			    ts_ctrl[c].name, ts_ctrl[c].pa);
+			map_failed++;
+			printf("PANDORA THERMAL: [tsens] %s map failed (0x%llx), "
+			    "controller skipped\n", ts_ctrl[c].name,
+			    ts_ctrl[c].pa);
+			continue;
 		}
+		mapped++;
 	}
+	printf("PANDORA THERMAL: [tsens] %u of %u controllers mapped, %u "
+	    "failed\n", mapped, TS_NCTRL, map_failed);
 
 	if (!tt_choose_bank()) {
-		printf("PANDORA THERMAL: no TM bank carried VALID bits; "
+		printf("PANDORA THERMAL: [tsens] no TM bank carried VALID bits; "
 		    "this hardware does not match tsens-v2 as assumed\n");
 		(void)thread_terminate(current_thread());
 		return;
@@ -446,7 +573,7 @@ tt_thread(void *arg, wait_result_t wres)
 		if (srot) {
 			(void)tt_read(srot, 0x00, &a);
 			(void)tt_read(srot, 0x04, &b);
-			printf("PANDORA THERMAL: %s SROT 0x%llx +0x00 "
+			printf("PANDORA THERMAL: [tsens] %s SROT 0x%llx +0x00 "
 			    "0x%08x +0x04 0x%08x (read only)\n",
 			    ts_ctrl[c].name, ts_ctrl[c].pa_srot, a, b);
 		}
@@ -460,7 +587,7 @@ tt_thread(void *arg, wait_result_t wres)
 		tt.reports++;
 
 		if (tt.reports == 1 || (tt.reports % 10u) == 0 || tt.warned) {
-			printf("PANDORA THERMAL: max %d.%d C (%s) cpu0 %d "
+			printf("PANDORA THERMAL: [tsens] max %d.%d C (%s) cpu0 %d "
 			    "cpu1 %d cpullc %d/%d gpu %d ddr %d, %u valid, "
 			    "bank %s, %s\n",
 			    all_max / 10, all_max < 0 ? -(all_max % 10) :
@@ -491,6 +618,7 @@ pandora_thermal_init(void)
 {
 	thread_t thread;
 	unsigned enable = 0;
+	unsigned gpu_cap = 1;
 
 	if (tt.started) {
 		return;
@@ -498,15 +626,18 @@ pandora_thermal_init(void)
 	tt.started = 1;
 	(void)PE_parse_boot_argn("pandora_thermal", &enable, sizeof(enable));
 	if (!enable) {
-		printf("PANDORA THERMAL: off (pandora_thermal=0)\n");
+		printf("PANDORA THERMAL: [tsens] off (pandora_thermal=0)\n");
 		return;
 	}
 	tt.enabled = 1;
+	(void)PE_parse_boot_argn("pandora_thermal_gpucap", &gpu_cap,
+	    sizeof(gpu_cap));
+	tt.act_gpu = gpu_cap != 0;
 	if (kernel_thread_start_priority(tt_thread, NULL, TS_PRIORITY,
 	    &thread) == KERN_SUCCESS) {
 		thread_deallocate(thread);
 	} else {
-		printf("PANDORA THERMAL: thread start failed\n");
+		printf("PANDORA THERMAL: [tsens] thread start failed\n");
 	}
 }
 
@@ -515,6 +646,24 @@ pandora_thermal_init(void)
  * junction temperature before a long submission). Returns 1 when every group
  * read, and is safe to call before the thread has started.
  */
+/*
+ * The applied state, for a sysctl or a later boot log to read. Safe before the
+ * thread has started: static zeros mean "level 0, no cap, nothing applied".
+ */
+void
+pandora_thermal_state(int *level, unsigned *gpu_cap, unsigned *changes)
+{
+	if (level) {
+		*level = tt.act_level;
+	}
+	if (gpu_cap) {
+		*gpu_cap = tt.act_gpu_cap;
+	}
+	if (changes) {
+		*changes = tt.act_changes;
+	}
+}
+
 int
 pandora_thermal_read(int *max_cpu, int *max_gpu, int *max_ddr, int *max_all)
 {
