@@ -74,10 +74,14 @@
  * bsd/dev C can call (see syna_irq_register); the argument exists so that the
  * switch is one line once a shim lands, and so that the log says which mode ran.
  *
- * Software filters, both off by default: touch_edge=PX drops finger positions
- * within PX of any border (the panel keeps reporting; only the post is withheld)
- * and touch_palm=AREA is parsed and reported as unavailable, because the report
- * configuration this driver negotiates carries no pressure/area field.
+ * Software filter, off by default: touch_edge=PX drops finger positions within PX of
+ * any border (the panel keeps reporting; only the post is withheld).
+ *
+ * Palm and glove are chip-side, and that is not laziness: the report configuration this
+ * driver negotiates carries index, classification, x and y only -- no pressure, no contact
+ * area -- so touch_palm=AREA is parsed, explained and refused, and the real knobs are
+ * touch_grip=1 (SET_DYNAMIC_CONFIG, DC_GRIP_SUPPRESSION_ENABLED) and touch_glove=1
+ * (DC_ENABLE_GLOVE, plus DC_ENABLE_THICK_GLOVE), both read back and both off by default.
  *
  * Wiring (the plan §5.2-5.4): redwood_input.c:219 holds `redwood_goodix_init();`;
  * popsicle_syna_init() is called right after it.
@@ -720,6 +724,24 @@ static bool (*spi_transfer)(const uint8_t *tx, uint8_t *rx, uint32_t length);
 #define TCM_CMD_GET_APPLICATION_INFO 0x20
 #define TCM_CMD_SET_TOUCH_REPORT_CONFIG 0x26
 
+/* core.h:227-228. These two are the vendor's own knob for palm/glove behaviour, and they are
+ * the only route to it: the report configuration this driver negotiates carries index,
+ * classification, x and y only, so the host never sees pressure or contact area
+ * (touch.c:881-887 asks for exactly those four fields too), which leaves the chip as the only
+ * place a palm can be told apart from a finger. */
+#define TCM_CMD_GET_DYNAMIC_CONFIG    0x23
+#define TCM_CMD_SET_DYNAMIC_CONFIG    0x24
+/* core.h:192-207 enum dynamic_config_id is numbered positionally from DC_UNKNOWN = 0x00
+ * (checked: that is the only initialiser in the block), so these are the wire ids:
+ *   1 no_doze, 2 disable_noise_mitigation, 3 inhibit_frequency_shift, 4 requested_frequency,
+ *   5 disable_hsync, 6 rezero_on_exit_deep_sleep, 7 charger_connected,
+ *   8 no_baseline_relaxation, 9 in_wakeup_gesture_mode, 10 stimulus_fingers,
+ *   11 grip_suppression_enabled, 12 enable_thick_glove, 13 enable_glove.
+ * They are spelled out rather than recomputed because the enum itself is not importable here. */
+#define TCM_DC_GRIP_SUPPRESSION       11
+#define TCM_DC_ENABLE_THICK_GLOVE     12
+#define TCM_DC_ENABLE_GLOVE           13
+
 /* core.h:258-266 report_type (the subset used here) */
 #define TCM_REPORT_IDENTIFY       0x10
 #define TCM_REPORT_TOUCH          0x11
@@ -839,6 +861,8 @@ static uint32_t palm_area;      /* boot-arg touch_palm=AREA: parsed and explaine
 static uint32_t irq_mode;       /* boot-arg touch_irq_mode=1: stays 1 only if an EINT was registered */
 static uint32_t withheld_edge;  /* positions touch_edge kept out of redwood_input */
 static int syna_wake_chan;      /* what syna_irq_handler wakes; see the EINT block below */
+static uint32_t grip_on;        /* boot-arg touch_grip=1: ask the chip for grip suppression */
+static uint32_t glove_on;       /* boot-arg touch_glove=1: ask the chip for glove tracking */
 /* [TBD §6.9: the fod window (DTB synaptics,fod-* = 597,2406 246x246) does not change the
  * touch report; coordinates pass through as reported] */
 
@@ -1094,6 +1118,51 @@ tcm_enable_report(void)
 	return tcm_command(TCM_CMD_ENABLE_REPORT, &report_type, 1, NULL, NULL, false);
 }
 
+/* core.c:2493-2531 syna_tcm_set_dynamic_config: a three-byte payload, the id and then the
+ * value little-endian. core.c:2447-2491 syna_tcm_get_dynamic_config: a one-byte payload, the
+ * id, and the answer is a little-endian value of at least two bytes. */
+/* The payload and the reply are spelled as named fields rather than as byte arrays. This
+ * tree builds with -Wunsafe-buffer-usage, and subscribing a local uint8_t[] would add three
+ * warnings to a file whose existing set is meant to stay put. Named fields are also what the
+ * vendor code means: core.c:2505-2511 fills id, then the value low byte, then the high byte,
+ * and core.c:2481-2489 reads the two reply bytes back little-endian. */
+struct tcm_dc_payload {
+	uint8_t id;
+	uint8_t low;
+	uint8_t high;
+};
+
+struct tcm_dc_reply {
+	uint8_t low;
+	uint8_t high;
+};
+
+static bool
+tcm_set_dynamic_config(uint8_t id, uint16_t value)
+{
+	struct tcm_dc_payload payload;
+
+	payload.id = id;
+	payload.low = (uint8_t)value;
+	payload.high = (uint8_t)(value >> 8);
+	return tcm_command(TCM_CMD_SET_DYNAMIC_CONFIG, (const uint8_t *)&payload,
+	    (uint32_t)sizeof(payload), NULL, NULL, false);
+}
+
+static bool
+tcm_get_dynamic_config(uint8_t id, uint16_t *value)
+{
+	struct tcm_dc_reply reply;
+	uint32_t length = (uint32_t)sizeof(reply);
+
+	if (!tcm_command(TCM_CMD_GET_DYNAMIC_CONFIG, &id, 1, (uint8_t *)&reply, &length, false) ||
+	    length < (uint32_t)sizeof(reply)) {
+		return false;
+	}
+	*value = (uint16_t)(reply.low | ((uint16_t)reply.high << 8));
+	return true;
+}
+
 /* touch.c:177-229 touch_get_report_data: bits are packed least significant first. */
 static uint32_t
 touch_bits(const uint8_t *report, uint32_t report_bytes, uint32_t *offset, uint32_t bits)
@@ -1325,6 +1394,38 @@ tcm_probe(bool verbose)
 	if (!tcm_enable_report()) {
 		printf("syna: the chip would not enable the touch report\n");
 		return false;
+	}
+	/* chip-side palm and glove behaviour. Nothing here touches the report format: the
+	 * coordinates keep arriving as they always did, the chip just stops reporting a palm as a
+	 * finger (grip suppression) or stops losing a gloved finger (glove tracking). Both are
+	 * read back, because a firmware that does not know the id answers with an error rather
+	 * than lying, and a silent no-op is worse than a log line. */
+	if (grip_on) {
+		uint16_t value = 0;
+
+		if (!tcm_set_dynamic_config(TCM_DC_GRIP_SUPPRESSION, 1)) {
+			printf("syna: touch_grip=1: the chip refused grip suppression\n");
+		} else if (tcm_get_dynamic_config(TCM_DC_GRIP_SUPPRESSION, &value)) {
+			printf("syna: touch_grip=1: grip suppression reads back %u\n", value);
+		} else {
+			printf("syna: touch_grip=1: grip suppression written, read-back failed\n");
+		}
+	}
+	if (glove_on) {
+		uint16_t thin = 0, thick = 0;
+
+		if (!tcm_set_dynamic_config(TCM_DC_ENABLE_GLOVE, 1)) {
+			printf("syna: touch_glove=1: the chip refused glove tracking\n");
+		} else if (tcm_get_dynamic_config(TCM_DC_ENABLE_GLOVE, &thin)) {
+			printf("syna: touch_glove=1: glove tracking reads back %u\n", thin);
+		} else {
+			printf("syna: touch_glove=1: glove tracking written, read-back failed\n");
+		}
+		/* the thicker glove is a second, separate id; failing it is not fatal */
+		if (tcm_set_dynamic_config(TCM_DC_ENABLE_THICK_GLOVE, 1) &&
+		    tcm_get_dynamic_config(TCM_DC_ENABLE_THICK_GLOVE, &thick)) {
+			printf("syna: touch_glove=1: thick glove reads back %u\n", thick);
+		}
 	}
 	{
 		uint32_t objects = le16(app_info.max_objects), x = le16(app_info.max_x), y = le16(app_info.max_y);
@@ -1604,6 +1705,8 @@ syna_thread(__unused void *parameter, __unused wait_result_t result)
 	PE_parse_boot_argn("touch_edge", &edge_margin, sizeof(edge_margin));
 	PE_parse_boot_argn("touch_palm", &palm_area, sizeof(palm_area));
 	PE_parse_boot_argn("touch_irq_mode", &want_irq, sizeof(want_irq));
+	PE_parse_boot_argn("touch_grip", &grip_on, sizeof(grip_on));
+	PE_parse_boot_argn("touch_glove", &glove_on, sizeof(glove_on));
 	if (poll_us < 250 || poll_us > 100000) {
 		poll_us = 8000;
 	}
