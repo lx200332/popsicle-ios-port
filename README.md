@@ -41,14 +41,17 @@
 ```
 *.md                     进度与结论文档（建议先读 STATUS-进度总结）
 popsicle_*.c             驱动源码：audio / camera / fp / goodix / modem / syna / wifi
-drivers/pandora/         本轮从零写的三份驱动：pandora_bt.c / pandora_modem.c / pandora_thermal.c
+drivers/pandora/         本轮从零写的驱动：pandora_bt.c / pandora_modem.c / pandora_thermal.c / redwood_input.c
 dts/                     设备树（merged dtb / overlay / canoe base）
 boots/                   真机验证过的 fastboot boot 镜像（.img.gz）+ 里程碑索引
 UniXNU-popsicle/         另一条路线（UEFI + BootShim）的板级包
-tools/                   构建、FDT 合并、固件解析脚本
+tools/                   构建、FDT 合并、固件解析脚本；register-drivers.sh 登记驱动进 bsd/conf/files
 panels/                  面板初始化序列
 popsiclePkg/             空占位（实际包在 UniXNU-popsicle/firmware 下）
 ```
+
+镜像打包统一用 `data-a-live-popsicle/wsl/make_image.sh`；本仓库不再保留第二份
+`tools/make_image.sh`（它解析 `REPO` 到本树，而它依赖的 5 个工具在这里都不存在）。
 
 ## 不入库的内容
 

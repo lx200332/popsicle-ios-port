@@ -1,20 +1,51 @@
+# 0335 — register the PANDORA / Popsicle drivers in bsd/conf/files.
+#
+# RECORD ONLY. This patch is what the registration looks like, not the way to
+# apply it. A static patch cannot ask "is this line already there", so a second
+# `git apply` of this file fails with:
+#
+#   error: patch failed: bsd/conf/files:134
+#   error: bsd/conf/files: patch does not apply
+#
+# The idempotent mechanism is tools/register-drivers.sh, which checks before it
+# appends and can be re-run at any time:
+#
+#   tools/register-drivers.sh /opt/work/ci/buildtree/xnu
+#
+# It registers the same fourteen sources below and additionally wires four init
+# calls into the sweet_ufs.c bring-up block (bsd/dev/sweet_ufs.c is not in this
+# repository, so that half of the work cannot live in a patch against it):
+# redwood_input_init(), pandora_sensors_init(), pandora_idle_init() and
+# pandora_mem_init(). This file is kept so the conf/files change is reviewable in
+# the same diff form as 0333 and 0334.
+#
+# bsd/dev/pandora_touch.c is NOT in this hunk: it sits at line 112 of the
+# upstream file, above bsd/dev/pandora_amp.c, and was already registered there.
+# The script only verifies that line still exists and never moves it.
+#
+# Header files are not listed in conf/files — the file has no .h entry at all.
+# bsd/sys/redwood_input.h is found through the include path; it ships in 0334.
+#
 --- a/bsd/conf/files
 +++ b/bsd/conf/files
-@@ -134,6 +134,17 @@
+@@ -134,6 +134,20 @@
  bsd/dev/pandora_cpu.c			standard
  bsd/dev/pandora_autoswipe.c		standard
  bsd/dev/pandora_dpu.c			standard
 +bsd/dev/pandora_bt.c		standard
 +bsd/dev/pandora_modem.c		standard
-+bsd/dev/pandora_thermal.c		standard
++bsd/dev/pandora_thermal.c	standard
 +bsd/dev/popsicle_wifi.c		standard
-+bsd/dev/popsicle_audio.c		standard
-+bsd/dev/popsicle_camera.c		standard
++bsd/dev/popsicle_audio.c	standard
++bsd/dev/popsicle_camera.c	standard
 +bsd/dev/popsicle_fp.c		standard
-+bsd/dev/popsicle_modem.c		standard
++bsd/dev/popsicle_modem.c	standard
 +bsd/dev/popsicle_syna.c		standard
-+bsd/dev/popsicle_goodix.c		standard
++bsd/dev/popsicle_goodix.c	standard
 +bsd/dev/redwood_input.c		standard
++bsd/dev/pandora_sensors.c	standard
++bsd/dev/pandora_idle.c		standard
++bsd/dev/pandora_mem.c		standard
  bsd/dev/adreno/ArmSmmu4K.c		standard
- bsd/dev/adreno/ArmSmmu4KContext.c		standard
- bsd/dev/adreno/ArmSmmu4KProgram.c		standard
+ bsd/dev/adreno/ArmSmmu4KContext.c	standard
+ bsd/dev/adreno/ArmSmmu4KProgram.c	standard
