@@ -69,6 +69,16 @@
  * quietly, no screen is touched (plan §5.5). The plan §6 items that could not be
  * settled from the DTB are marked // [TBD §6.x] with the default chosen.
  *
+ * Interrupt: still polling by default. boot-arg touch_irq_mode=1 asks for the EINT
+ * and gets a refusal, because this kernel has no per-INTID registration that
+ * bsd/dev C can call (see syna_irq_register); the argument exists so that the
+ * switch is one line once a shim lands, and so that the log says which mode ran.
+ *
+ * Software filters, both off by default: touch_edge=PX drops finger positions
+ * within PX of any border (the panel keeps reporting; only the post is withheld)
+ * and touch_palm=AREA is parsed and reported as unavailable, because the report
+ * configuration this driver negotiates carries no pressure/area field.
+ *
  * Wiring (the plan §5.2-5.4): redwood_input.c:219 holds `redwood_goodix_init();`;
  * popsicle_syna_init() is called right after it.
  *
@@ -78,10 +88,13 @@
  * device tree (kaanapali-xiaomi-popsicle.dtb).
  */
 #include <kern/clock.h>
+#include <kern/sched_prim.h>	/* thread_wakeup: the optional EINT handler (syna_irq_handler) */
 #include <kern/thread.h>
 #include <libkern/libkern.h>
 #include <mach/mach_types.h>
+#include <pexpert/device_tree.h>	/* SecureDTFindEntry: the DT-asserted EINT number */
 #include <pexpert/pexpert.h>
+#include <sys/errno.h>		/* ENOTSUP, returned by syna_irq_register */
 #include <sys/redwood_input.h>
 #include <sys/systm.h>
 #include <vm/pmap.h>	/* VM_WIMG_IO for ml_io_map_unmappable */
@@ -818,6 +831,14 @@ static uint16_t app_status;
 static uint32_t max_x = 1200, max_y = 2608;    /* DTB synaptics,max-x/max-y = 0x4b0/0xa30 */
 static uint32_t max_objects = TCM_MAX_TOUCHES;
 static uint32_t flip;                          /* boot-arg touch_flip: 1 = mirror left-right, 2 = mirror top-bottom */
+
+/* Software filters and the optional interrupt. All zero by default, and with them zero
+ * every path below is the path it was before they existed. */
+static uint32_t edge_margin;    /* boot-arg touch_edge=PX: withhold positions within PX of a border */
+static uint32_t palm_area;      /* boot-arg touch_palm=AREA: parsed and explained, never applied (no area field) */
+static uint32_t irq_mode;       /* boot-arg touch_irq_mode=1: stays 1 only if an EINT was registered */
+static uint32_t withheld_edge;  /* positions touch_edge kept out of redwood_input */
+static int syna_wake_chan;      /* what syna_irq_handler wakes; see the EINT block below */
 /* [TBD §6.9: the fod window (DTB synaptics,fod-* = 597,2406 246x246) does not change the
  * touch report; coordinates pass through as reported] */
 
@@ -1218,6 +1239,27 @@ tcm_report_diff(void)
 			if (flip & 2) {
 				y = 65535 - y;
 			}
+			/* touch_edge=PX, a software layer: the panel is not told anything and
+			 * keeps reporting; only the post to redwood_input is withheld, so a
+			 * finger that starts on a border "appears" once it leaves the margin.
+			 * contact[idx].down stays false, so that first post is a DOWN. */
+			if (edge_margin) {
+				uint32_t mx = (uint32_t)((uint64_t)edge_margin * 65535 / (max_x ? max_x : 1));
+				uint32_t my = (uint32_t)((uint64_t)edge_margin * 65535 / (max_y ? max_y : 1));
+
+				/* a margin of half an axis or more would drop every position, so a
+				 * typo cannot switch the panel off: the middle half always survives */
+				if (mx > 16383) {
+					mx = 16383;
+				}
+				if (my > 16383) {
+					my = 16383;
+				}
+				if (x < mx || x > 65535 - mx || y < my || y > 65535 - my) {
+					withheld_edge++;
+					break;
+				}
+			}
 			seen.touches++;
 			seen.last_x = x;
 			seen.last_y = y;
@@ -1432,6 +1474,111 @@ bring_up(void)
 	return false;
 }
 
+/* ---- the optional EINT ----------------------------------------------------------------------------
+ * boot-arg touch_irq_mode=1 is meant to replace the look at the GPIO level with a real interrupt.
+ * It cannot, in this kernel, and this block says so rather than pretending:
+ *
+ *   - The DT names the line: popsicle_overlay.dts:4019 synaptics_tcm@0 has
+ *     interrupts = <0x9e 0x2008> at :4024 (0x9e = 158) and synaptics,irq-gpio =
+ *     <0xffffffff 0x9e 0x2008> at :4029, the same 158 as both the GIC SPI and the TLMM pin. Its
+ *     interrupt-parent (:4023) is <0xffffffff>, a placeholder the overlay build has to fill in;
+ *     canoe_base.dts:1072-1082 gives the TLMM an interrupt-controller node of its own (phandle
+ *     0x30), so the cell may belong to either controller. 158 is therefore DT-asserted and
+ *     unproved, and only the -gpio reading (GPIO 158, which this driver already uses as PIN_INT)
+ *     is certain.
+ *   - There is no per-INTID registration a C file in bsd/dev can call. The only registry is
+ *     iokit/Kernel/arm/SweetGIC.cpp (registerInterrupt at IOKit/IOInterruptController.h:79-84),
+ *     reachable only through IOKit C++ classes; bsd/conf/files:146 builds this file as C.
+ *   - ml_install_interrupt_handler (osfmk/arm/machine_routines.h:568, implemented at
+ *     osfmk/arm64/machine_routines.c:801) is not per-INTID: it overwrites the single per-CPU
+ *     dispatcher slot that SweetGIC itself installed (SweetGIC.cpp:107), so calling it here
+ *     would take display/GPU interrupts away from SweetGIC. Not doing that.
+ *   - No GPIO-irq layer exists either: nothing in this tree registers a TLMM pin interrupt
+ *     (the ten bsd/dev files that mention tlmm all poke the registers directly).
+ *
+ * What a working switch needs, all outside this file: a C-callable
+ *   int sweet_gic_register_spi(int intid, IOInterruptHandler handler, void *target, void *refCon);
+ * exported from SweetGIC.cpp (or a C++ kext wrapper like pandora_gpu_irq_attach,
+ * bsd/dev/pandora_gpu.c:2508), plus a decision on whether 158 is a GIC SPI or a TLMM pin.
+ * Until then syna_irq_register() reports and refuses, and the thread keeps polling.
+ */
+
+/* The handler would wake the polling thread and nothing else: redwood_touch_post is documented
+ * "not from interrupt context" (sys/redwood_input.h), so the report is still read here, in
+ * syna_thread. Kept next to the pointer that would carry it, so that the day the shim exists
+ * this is a one-field change and no new code. */
+static void
+syna_irq_handler(__unused void *target, __unused void *refCon, __unused void *nub,
+    __unused int source)
+{
+	thread_wakeup((event_t)&syna_wake_chan);
+}
+
+/* The registration entry point this kernel does not have. The shape is copied from
+ * IOKit/IOInterruptController.h:79-84 registerInterrupt(IOService *nub, int source, void *target,
+ * IOInterruptHandler handler, void *refCon) minus the C++ types: an int id and a plain function
+ * pointer. register_spi is NULL because nothing in this tree exports such a symbol.
+ *
+ * volatile because the field is a compile-time constant: without it clang folds the branch away
+ * and reports the call as unreachable (-Wunreachable-code), which is true but hides the fact that
+ * the call is the whole point of the block. It is data in .data, written once per boot by this
+ * initialiser, never cached across a call -- nothing here races. */
+static const struct {
+	int (*volatile register_spi)(int intid, void (*handler)(void *, void *, void *, int), void *target,
+	    void *refCon);
+	void (*handler)(void *, void *, void *, int);
+} eint_api = { NULL, syna_irq_handler };
+
+/* sleep_us() that an interrupt can cut short; the timeout is the old poll interval, so a
+ * missed or unregistered line degrades to the polling rate instead of hanging */
+static void
+syna_wait(uint32_t us)
+{
+	uint64_t deadline;
+
+	if (!irq_mode) {
+		sleep_us(us);
+		return;
+	}
+	clock_interval_to_deadline(us / 1000 ? us / 1000 : 1, NSEC_PER_MSEC, &deadline);
+	(void)assert_wait_deadline(&syna_wake_chan, THREAD_UNINT, deadline);
+	thread_block(THREAD_CONTINUE_NULL);
+}
+
+/* Returns 0 and fills *intid when an EINT is registered; ENOTSUP otherwise, with the reason in
+ * the log. The DT probe runs first either way, so the log carries the number even on refusal. */
+static int
+syna_irq_register(uint32_t *intid)
+{
+	DTEntry node = NULL;
+	const uint32_t *cells = NULL;
+	unsigned int size = 0;
+
+	*intid = 0;
+	if (SecureDTFindEntry("compatible", "synaptics,tcm-spi", &node) != kSuccess ||
+	    SecureDTGetProperty(node, "interrupts", (void const **)&cells, &size) != kSuccess ||
+	    size < 4) {
+		printf("PANDORA SYNA: no synaptics,tcm-spi node with interrupts in the DT; "
+		    "staying on polling\n");
+		return ENOTSUP;
+	}
+	*intid = cells[0];
+	printf("PANDORA SYNA: DT asserts EINT %u for gpio %u (interrupt-parent is a build-time "
+	    "placeholder, so the controller is unproved)\n", *intid, PIN_INT);
+	if (eint_api.register_spi != NULL) {
+		int error = eint_api.register_spi((int)*intid, eint_api.handler, NULL, NULL);
+
+		if (error == 0) {
+			printf("PANDORA SYNA: EINT %u registered\n", *intid);
+			return 0;
+		}
+		printf("PANDORA SYNA: EINT %u refused (%d), staying on polling\n", *intid, error);
+		return ENOTSUP;
+	}
+	printf("PANDORA SYNA: EINT registration unavailable in this tree, staying on polling\n");
+	return ENOTSUP;
+}
+
 /* ---- the polled thread ----------------------------------------------------------------------------
  * redwood_goodix.c L1425-1500 */
 
@@ -1450,9 +1597,13 @@ syna_thread(__unused void *parameter, __unused wait_result_t result)
 	unsigned idle = 0, idle_looks;
 	uint32_t poll_us = 8000, latency = 0, reads = 0;
 	uint64_t before = 0, reading = 0;
+	uint32_t want_irq = 0, intid = 0;
 
 	PE_parse_boot_argn("touch_poll_us", &poll_us, sizeof(poll_us));
 	PE_parse_boot_argn("touch_lat", &latency, sizeof(latency));
+	PE_parse_boot_argn("touch_edge", &edge_margin, sizeof(edge_margin));
+	PE_parse_boot_argn("touch_palm", &palm_area, sizeof(palm_area));
+	PE_parse_boot_argn("touch_irq_mode", &want_irq, sizeof(want_irq));
 	if (poll_us < 250 || poll_us > 100000) {
 		poll_us = 8000;
 	}
@@ -1471,6 +1622,23 @@ syna_thread(__unused void *parameter, __unused wait_result_t result)
 	}
 	printf("syna: Synaptics TCM touch screen ready; the interrupt line (gpio %u) is looked at every %u us\n",
 	    PIN_INT, poll_us);
+	/* the new switches, said once each and only when asked for, so that a boot without them
+	 * logs exactly what it logged before */
+	if (want_irq) {
+		if (syna_irq_register(&intid) == 0) {
+			irq_mode = 1;
+		}
+	}
+	if (edge_margin) {
+		printf("syna: touch_edge=%u px: finger positions within %u px of a border are dropped "
+		    "before redwood_input (a software filter; the panel is not reconfigured)\n",
+		    edge_margin, edge_margin);
+	}
+	if (palm_area) {
+		printf("syna: touch_palm=%u ignored: the report configuration negotiated with the chip "
+		    "carries index/classification/x/y only (no pressure or area field), so there is "
+		    "nothing to threshold [TBD]\n", palm_area);
+	}
 	for (unsigned tick = 1;; tick++) {
 		uint64_t looked = micros_now(), read_at;
 
@@ -1496,8 +1664,16 @@ syna_thread(__unused void *parameter, __unused wait_result_t result)
 			    "interrupt line %s; a report takes %llu us to read; the line looked at every %u us\n",
 			    seen.reports, seen.polls, seen.bad, seen.touches, seen.last_x, seen.last_y,
 			    gpio_get(PIN_INT) ? "high" : "low", reads ? reading / reads : 0, poll_us);
+			if (edge_margin) {
+				printf("syna: touch_edge=%u has withheld %u finger positions so far\n",
+				    edge_margin, withheld_edge);
+			}
 		}
-		sleep_us(poll_us);
+		if (irq_mode) {
+			syna_wait(poll_us);
+		} else {
+			sleep_us(poll_us);
+		}
 	}
 }
 
