@@ -39,6 +39,7 @@
 #include <sys/errno.h>
 #include <kern/clock.h>
 #include <kern/thread.h>
+#include <IOKit/IOLib.h>          /* IOLog, for the boot-arg trace below */
 #include <kern/sched_prim.h>
 #include <kern/locks.h>
 #include <machine/machine_routines.h>
@@ -469,20 +470,41 @@ bcm_vote(const char *res, uint32_t peak)
 extern int pandora_part_find(const char *name, uint32_t *lun, uint64_t *first, uint64_t *blocks);
 extern int pandora_part_pread(uint64_t off, void *dst, uint64_t len);
 
+/* Two partitions at once need two handles: modem_a's FAT holds adsp.mdt but has no
+ * modem.mdt, while modemfirmware_a has modem.mdt and the modem_pr tree. sweet_ufs.c
+ * defines this struct; the layout here has to match it exactly. */
+struct pandora_part {
+	uint8_t lun;
+	uint64_t first, blocks;
+};
+
+extern int pandora_part_find2(const char *name, struct pandora_part *out);
+extern int pandora_part_pread2(const struct pandora_part *p, uint64_t off, void *dst, uint64_t len);
+
 struct fw_ent {
 	char name[48];
 	uint64_t off, size;
 };
 static struct fw_ent ad_dir[63];
 static unsigned ad_nfiles;
-static FatVolume ad_fat;
-static int ad_fat_state;                 /* 0 not tried, 1 mounted, -1 not usable */
+/* FW_PACK reads the pinned pack; FW_MODEM and FW_MF read the FAT of modem_<slot> and
+ * modemfirmware_<slot>. They are different partitions: modem_a holds adsp.mdt and
+ * adsp_dtb.mdt, modemfirmware_a holds modem.mdt, modem_dtb.mdt and the modem_pr tree
+ * (the OTA's modem/image has no modem.mdt at all; modemfirmware/image has it). */
+#define FW_PACK   0
+#define FW_MODEM  1
+#define FW_MF     2
+#define FW_VOLS   3
+
+static FatVolume ad_fat[FW_VOLS];
+static int ad_fat_state[FW_VOLS];        /* 0 not tried, 1 mounted, -1 not usable */
 
 /* One file: in the firmware partition's FAT, or in the pack. */
 struct fw_file {
 	uint64_t size, pack_off;
 	FatFile fat;
 	bool in_fat;
+	int vol;                        /* which FAT holds fat, when in_fat */
 };
 
 static int
@@ -518,58 +540,79 @@ fw_find(const char *name)
 	return NULL;
 }
 
+/* The FatVolume context is the volume index itself, so one reader serves all of them. */
+static struct pandora_part ad_parts[FW_VOLS];
+
 static int
 fat_part_read(void *ctx, uint64_t off, void *to, size_t len)
 {
-	(void)ctx;
-	return pandora_part_pread(off, to, len);
+	int which = (int)(uintptr_t)ctx;
+	if (which <= FW_PACK || which >= FW_VOLS) {
+		return EINVAL;
+	}
+	return pandora_part_pread2(&ad_parts[which], off, to, len);
 }
 
-/* The firmware partition's FAT, once. */
+static bool ad_slot_ready;
+static char ad_slot;                     /* 'a' or 'b': the active slot */
+
+/* One firmware partition's FAT, once. */
 static int
-fw_mount(void)
+fw_mount(int which)
 {
-	if (ad_fat_state) {
-		return ad_fat_state > 0 ? 0 : ENOENT;
+	if (which <= FW_PACK || which >= FW_VOLS) {
+		return EINVAL;
 	}
-	ad_fat_state = -1;
-	char slot[4] = "", part[16];
-	if (!PE_parse_boot_arg_str("pandora_slot", slot, sizeof(slot)) || (slot[0] != 'a' && slot[0] != 'b') ||
-	    slot[1]) {
-		printf("PANDORA ADSP: no boot-arg pandora_slot=a|b: the firmware partition is not read\n");
-		return ENOENT;
+	if (ad_fat_state[which]) {
+		return ad_fat_state[which] > 0 ? 0 : ENOENT;
 	}
-	snprintf(part, sizeof(part), "modem_%c", slot[0]);
-	uint32_t lun = 0;
-	uint64_t first = 0, blocks = 0;
-	int err = pandora_part_find(part, &lun, &first, &blocks);
+	ad_fat_state[which] = -1;
+	char part[16];
+	/* pandora_slot=a|b picks the modem_<slot> firmware partition that holds /image;
+	 * the cmdline has no room for it (605 of 608 bytes), so a missing or malformed
+	 * value means the active slot 'a' rather than no firmware partition at all. */
+	if (!ad_slot_ready) {
+		char slot[4] = "";
+		bool from_arg = PE_parse_boot_arg_str("pandora_slot", slot, sizeof(slot)) &&
+		    (slot[0] == 'a' || slot[0] == 'b') && !slot[1];
+		ad_slot = from_arg ? slot[0] : 'a';
+		ad_slot_ready = true;
+		IOLog("PANDORA ADSP: slot %c (%s)\n", ad_slot, from_arg ? "boot-arg" : "default");
+	}
+	snprintf(part, sizeof(part), "%s_%c", which == FW_MF ? "modemfirmware" : "modem", ad_slot);
+	int err = pandora_part_find2(part, &ad_parts[which]);
 	if (err) {
 		printf("PANDORA ADSP: partition %s not found: %d\n", part, err);
 		return err;
 	}
-	int rc = fat_mount(&ad_fat, blocks * 4096, fat_part_read, NULL);
-	printf("PANDORA ADSP: %s: LUN %u blocks %#llx+%#llx, FAT mount -> %d (FAT%s, %u-byte clusters)\n", part, lun,
-	    first, blocks, rc, ad_fat.fat32 ? "32" : "16", ad_fat.cluster_bytes);
+	int rc = fat_mount(&ad_fat[which], ad_parts[which].blocks * 4096, fat_part_read,
+	    (void *)(uintptr_t)which);
+	printf("PANDORA ADSP: %s: LUN %u blocks %#llx+%#llx, FAT mount -> %d (FAT%s, %u-byte clusters)\n", part,
+	    ad_parts[which].lun, ad_parts[which].first, ad_parts[which].blocks, rc,
+	    ad_fat[which].fat32 ? "32" : "16", ad_fat[which].cluster_bytes);
 	if (rc) {
 		return EFTYPE;
 	}
-	ad_fat_state = 1;
+	ad_fat_state[which] = 1;
 	return 0;
 }
 
+#define FW_PATH_MAX     192u    /* "image/" plus the deepest modem_pr path (83 bytes) */
+
 static int
-fw_open(const char *name, bool part, struct fw_file *f)
+fw_open(const char *name, int part, struct fw_file *f)
 {
 	bzero(f, sizeof(*f));
 	if (part) {
-		char path[64];
+		char path[FW_PATH_MAX];
 		snprintf(path, sizeof(path), "image/%s", name);
-		int rc = fat_open(&ad_fat, path, &f->fat);
+		int rc = fat_open(&ad_fat[part], path, &f->fat);
 		if (rc || f->fat.directory) {
 			return rc == FatNotFound ? ENOENT : EIO;
 		}
 		f->size = f->fat.size;
 		f->in_fat = true;
+		f->vol = part;
 		return 0;
 	}
 	struct fw_ent *e = fw_find(name);
@@ -588,7 +631,7 @@ fw_pread(const struct fw_file *f, uint64_t off, void *dst, uint64_t len)
 		return EINVAL;
 	}
 	if (f->in_fat) {
-		return fat_read(&ad_fat, &f->fat, off, dst, (size_t)len) ? EIO : 0;
+		return fat_read(&ad_fat[f->vol], &f->fat, off, dst, (size_t)len) ? EIO : 0;
 	}
 	return pandora_fw_read(f->pack_off + off, dst, len);
 }
@@ -608,7 +651,7 @@ mdt_loadable(const struct elf32_phdr *p)
 
 /* Read segment i of base.mdt: from base.bNN (split images) or from the .mdt itself. */
 static int
-mdt_segment(const char *base, bool part, const struct fw_file *mdt, const struct elf32_phdr *p, unsigned i,
+mdt_segment(const char *base, int part, const struct fw_file *mdt, const struct elf32_phdr *p, unsigned i,
     void *dst)
 {
 	char name[48];
@@ -633,7 +676,7 @@ mdt_segment(const char *base, bool part, const struct fw_file *mdt, const struct
  * the carveout. The bridge handle is returned for deletion after the reset.
  */
 static int
-pas_load(const char *base, bool part, unsigned pas, uint64_t mem_pa, uint64_t mem_size, uint64_t *bridge)
+pas_load(const char *base, int part, unsigned pas, uint64_t mem_pa, uint64_t mem_size, uint64_t *bridge)
 {
 	char name[48];
 	if (strchr(base, '.')) {
@@ -643,7 +686,8 @@ pas_load(const char *base, bool part, unsigned pas, uint64_t mem_pa, uint64_t me
 	}
 	struct fw_file mdt;
 	if (fw_open(name, part, &mdt) || mdt.size < 52 || mdt.size > 0x10000) {
-		printf("PANDORA ADSP: %s missing in the %s\n", name, part ? "firmware partition" : "pack");
+		printf("PANDORA ADSP: %s missing in the %s\n", name,
+		    part == FW_PACK ? "pack" : part == FW_MF ? "modemfirmware partition" : "modem partition");
 		return ENOENT;
 	}
 	static uint8_t hdr[0x10000];
@@ -681,7 +725,8 @@ pas_load(const char *base, bool part, unsigned pas, uint64_t mem_pa, uint64_t me
 	uint32_t ehdr_size = ph[0].p_filesz, hash_size = ph[hash].p_filesz;
 	uint64_t md_size = ((uint64_t)ehdr_size + hash_size + 0xfff) & ~0xfffull;
 	printf("PANDORA ADSP: %s (%s): %u segments, hash %u (%u bytes), load %#llx-%#llx%s\n", name,
-	    part ? "firmware partition" : "pack", phnum, hash, hash_size, min, max, reloc ? " relocatable" : "");
+	    part == FW_PACK ? "pack" : part == FW_MF ? "modemfirmware partition" : "modem partition",
+	    phnum, hash, hash_size, min, max, reloc ? " relocatable" : "");
 	if (max - min > mem_size) {
 		printf("PANDORA ADSP: %s does not fit its carveout\n", name);
 		return EINVAL;
@@ -771,18 +816,74 @@ pas_auth(unsigned pas)
  * carveout, then authenticate and reset it. */
 int pandora_pas_load_auth(const char *file, unsigned pas, uint64_t mem_pa, uint64_t mem_size);
 
+int pandora_pas_load_auth_part(const char *file, unsigned pas, uint64_t mem_pa, uint64_t mem_size,
+    int part);
+
 int
-pandora_pas_load_auth(const char *file, unsigned pas, uint64_t mem_pa, uint64_t mem_size)
+pandora_pas_load_auth_part(const char *file, unsigned pas, uint64_t mem_pa, uint64_t mem_size, int part)
 {
 	uint64_t bridge = 0;
-	int err = ad_nfiles ? 0 : fw_dir();
+	int err;
+	if (part == FW_PACK) {
+		err = ad_nfiles ? 0 : fw_dir();
+	} else if ((err = fw_mount(part))) {
+		printf("PANDORA ADSP: pas %u: firmware volume %d unusable: %d\n", pas, part, err);
+		return err;
+	}
 	if (!err) {
-		err = pas_load(file, false, pas, mem_pa, mem_size, &bridge);
+		err = pas_load(file, part, pas, mem_pa, mem_size, &bridge);
 	}
 	if (!err) {
 		err = pas_auth(pas);
 	}
 	return err;
+}
+
+int
+pandora_pas_load_auth(const char *file, unsigned pas, uint64_t mem_pa, uint64_t mem_size)
+{
+	return pandora_pas_load_auth_part(file, pas, mem_pa, mem_size, FW_PACK);
+}
+
+/* For bsd/dev/pandora_modem.c: one file's size in a firmware volume's FAT, or an errno.
+ * PATH is relative to the volume root, so "image/modem.mdt". */
+int pandora_fw_volume_size(int part, const char *path, uint64_t *size);
+int
+pandora_fw_volume_size(int part, const char *path, uint64_t *size)
+{
+	struct fw_file f;
+	int err;
+	if (part <= FW_PACK || part >= FW_VOLS) {
+		return EINVAL;
+	}
+	if ((err = fw_mount(part))) {
+		return err;
+	}
+	if ((err = fw_open(path, part, &f))) {
+		return err;
+	}
+	*size = f.size;
+	return 0;
+}
+
+/* The same file's bytes from OFF, so a caller can check a header without knowing the
+ * volume's internals. */
+int pandora_fw_volume_read(int part, const char *path, uint64_t off, void *dst, uint64_t len);
+int
+pandora_fw_volume_read(int part, const char *path, uint64_t off, void *dst, uint64_t len)
+{
+	struct fw_file f;
+	int err;
+	if (part <= FW_PACK || part >= FW_VOLS) {
+		return EINVAL;
+	}
+	if ((err = fw_mount(part))) {
+		return err;
+	}
+	if ((err = fw_open(path, part, &f))) {
+		return err;
+	}
+	return fw_pread(&f, off, dst, len);
 }
 
 /* ---- the remote processors' links: SMEM, IPCC doorbells, SMP2P, GLINK ----------------- */
@@ -2761,7 +2862,7 @@ adsp_boot(void)
 	(void)PE_parse_boot_argn("pandora_adsp_gpr", &open_gpr, sizeof(open_gpr));
 	char src[8] = "";
 	(void)PE_parse_boot_arg_str("pandora_adsp_fw", src, sizeof(src));
-	bool part = strcmp(src, "pack") != 0 && fw_mount() == 0;
+	int part = (strcmp(src, "pack") != 0 && fw_mount(FW_MODEM) == 0) ? FW_MODEM : FW_PACK;
 	if (!part) {
 		printf("PANDORA ADSP: the ADSP images from the pinned pack\n");
 		if ((err = ad_nfiles ? 0 : fw_dir())) {

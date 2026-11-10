@@ -25,15 +25,22 @@
  *               qcom,intents = <0x800 0x5> <0x2000 0x3> <0x4400 0x2>
  *   AOP / QMP   qcom,qmp = <&power-controller@c300000>  (same node the ADSP uses)
  *
- * The load itself reuses pandora_pas_load_auth() from bsd/dev/pandora_adsp.c, which does
+ * The load itself reuses pandora_pas_load_auth_part() from bsd/dev/pandora_adsp.c, which does
  * qcom_mdt_read_metadata + PAS_INIT_IMAGE + PAS_MEM_SETUP + segment copy + PAS_AUTH_AND_RESET
- * with the same semantics as qcom_q6v5_pas.ko. Firmware comes from the pinned pack
- * (tools/mkfwpack.py) that pandora_fw_read() in sweet_ufs.c serves.
+ * with the same semantics as qcom_q6v5_pas.ko.
+ *
+ * Where the firmware is (0230): NOT in the pinned pack, and NOT in modem_a either.
+ * modem_a's image/ is device firmware_mnt (457 files, the OTA's modem/image) and holds
+ * adsp.mdt but no modem.mdt at all; modem.mdt, modem.b00..b26 (67,100,917 bytes) and the
+ * whole modem_pr tree are in modemfirmware_a. The pack is 16384 blocks (64 MiB) and the
+ * modem images alone are 67 MB, so the pack can never hold them: this driver reads
+ * FW_MF (modemfirmware_<slot>) through pandora_fw_volume_size/read plus
+ * pandora_pas_load_auth_part(). The pack is still what the GPU reads.
  *
  * The three legs of the PAS chain, and where each one stands (0229):
  *
- *   1 modem.mdt      pandora_pas_load_auth("modem", MD_PAS_MAIN, ...)            code path present
- *   2 modem_dtb.mdt  pandora_pas_load_auth("modem_dtb", MD_PAS_DTB, ...)         code path present
+ *   1 modem.mdt      pandora_pas_load_auth_part("modem", MD_PAS_MAIN, ..., MD_VOL)   code path present
+ *   2 modem_dtb.mdt  pandora_pas_load_auth_part("modem_dtb", MD_PAS_DTB, ..., MD_VOL) code path present
  *   3 mcfg           NOT a PAS image and there was no code path at all: the modem
  *                    software reads the whole modem_pr/mcfg tree itself once it is
  *                    up, over GLINK/QRTR, which this tree does not implement. Here
@@ -61,7 +68,6 @@
 #include <vm/pmap.h>
 
 extern kern_return_t thread_terminate(thread_t);
-extern int pandora_fw_read(uint64_t off, void *dst, uint64_t len);
 void pandora_modem_init(void);
 
 #define MD_PAS_MAIN   4u          /* canoe_mpss_resource +0x24 : modem.mdt as extra image */
@@ -72,14 +78,20 @@ void pandora_modem_init(void);
 #define MD_DTB_PA     0x99500000ull
 #define MD_DTB_SIZE   0x80000ull
 
-int pandora_pas_load_auth(const char *file, unsigned pas, uint64_t mem_pa, uint64_t mem_size);
+/* modemfirmware_<slot>: modem.mdt + modem.b00..b26 + modem_pr. pandora_adsp.c owns the
+ * volumes (FW_MODEM is modem_a, FW_MF is modemfirmware_a). */
+#define MD_VOL        FW_MF
 
-/* The pinned firmware pack, bsd/dev/pandora_adsp.c fw_dir(): magic, count, then
- * { char name[48]; uint64_t off, size; } per entry, all inside the first 4 KiB. */
-#define MD_PACK_MAGIC    "PANDFW01"
-#define MD_PACK_DIR      4096u
-#define MD_PACK_ENTS     63u
-#define MD_PACK_NAME     48u
+extern int pandora_pas_load_auth_part(const char *file, unsigned pas, uint64_t mem_pa,
+    uint64_t mem_size, int part);
+extern int pandora_fw_volume_size(int part, const char *path, uint64_t *size);
+extern int pandora_fw_volume_read(int part, const char *path, uint64_t off, void *dst, uint64_t len);
+
+/* pandora_adsp.c defines these; this file only names the volume it wants. */
+#define FW_PACK   0
+#define FW_MODEM  1
+#define FW_MF     2
+
 #define MD_ELF_HDR       52u       /* sizeof(Elf32_Ehdr): e_phnum lives at 44 */
 #define MD_MDT_MIN       52ull
 #define MD_MDT_MAX       0x10000ull
@@ -87,26 +99,22 @@ int pandora_pas_load_auth(const char *file, unsigned pas, uint64_t mem_pa, uint6
 
 static int md_chan;
 
-struct md_ent {
-	char name[MD_PACK_NAME];
-	uint64_t off, size;
-};
-
-/* One leg of the chain: the pack name, the size window it must fall in, what it is. */
+/* One leg of the chain: its path inside the volume (relative to the volume root, so the
+ * FAT's "image/" prefix included), the size window it must fall in, what it is. */
 struct md_leg {
 	const char *what;
-	const char *name;
+	const char *path;
 	uint64_t min, max;
 	bool header;               /* parse the first 52 bytes as an Elf32_Ehdr */
 };
 
 static const struct md_leg md_legs[] = {
-	{ "modem (PAS metadata)", "modem.mdt", MD_MDT_MIN, MD_MDT_MAX, true },
-	{ "modem_dtb (PAS metadata)", "modem_dtb.mdt", MD_MDT_MIN, MD_MDT_MAX, true },
-	{ "mcfg software manifest", "modem_pr/mcfg/configs/mcfg_sw/mbn_sw.txt", 1, MD_CFG_MAX, false },
-	{ "mcfg hardware manifest", "modem_pr/mcfg/configs/mcfg_hw/mbn_hw.txt", 1, MD_CFG_MAX, false },
+	{ "modem (PAS metadata)", "image/modem.mdt", MD_MDT_MIN, MD_MDT_MAX, true },
+	{ "modem_dtb (PAS metadata)", "image/modem_dtb.mdt", MD_MDT_MIN, MD_MDT_MAX, true },
+	{ "mcfg software manifest", "image/modem_pr/mcfg/configs/mcfg_sw/mbn_sw.txt", 1, MD_CFG_MAX, false },
+	{ "mcfg hardware manifest", "image/modem_pr/mcfg/configs/mcfg_hw/mbn_hw.txt", 1, MD_CFG_MAX, false },
 	{ "mcfg hardware image",
-	  "modem_pr/mcfg/configs/mcfg_hw/generic/common/Kaanapali/STANDALONE/LA/SS/mcfg_hw.mbn",
+	  "image/modem_pr/mcfg/configs/mcfg_hw/generic/common/Kaanapali/STANDALONE/LA/SS/mcfg_hw.mbn",
 	  1, MD_CFG_MAX, false },
 };
 
@@ -125,8 +133,8 @@ md_sleep(unsigned ms)
 /*
  * The pack directory, or 0 entries when there is no pack (or no UFS yet).
  *
- * md_pack_read() through md_survey_fw() are byte-level parsers over the pack
- * directory, so every one of them indexes a uint8_t array. clang 18 folds
+ * md_survey_fw() and md_mdt_shaped() index uint8_t header arrays, so every one of
+ * those accesses is an unsafe-buffer one. clang 18 folds
  * -Wunsafe-buffer-usage into -Weverything and flags all 25 of those accesses;
  * the CI toolchain (Xcode 15.0.1 / clang 1500.x) does not implement that
  * warning at all -- 0 occurrences in the 16182 warning lines of 0_build.txt
@@ -142,141 +150,82 @@ md_sleep(unsigned ms)
 #endif
 #endif
 
-static unsigned
-md_pack_read(struct md_ent *ents)
-{
-	static uint8_t dir[MD_PACK_DIR];
-	uint32_t n = 0;
-	int err;
-
-	err = pandora_fw_read(0, dir, sizeof(dir));
-	if (err) {
-		printf("PANDORA MODEM: firmware pack read failed %d (no pack on this boot)\n", err);
-		return 0;
-	}
-	if (memcmp(dir, MD_PACK_MAGIC, 8) != 0) {
-		printf("PANDORA MODEM: no firmware pack header (%c%c%c%c%c%c%c%c)\n",
-		    dir[0], dir[1], dir[2], dir[3], dir[4], dir[5], dir[6], dir[7]);
-		return 0;
-	}
-	memcpy(&n, dir + 8, sizeof(n));
-	if (n == 0 || n > MD_PACK_ENTS) {
-		printf("PANDORA MODEM: firmware pack claims %u entries (limit %u)\n", n, MD_PACK_ENTS);
-		return 0;
-	}
-	memcpy(ents, dir + 16, (size_t)n * sizeof(*ents));
-	printf("PANDORA MODEM: firmware pack: %u files\n", n);
-	return n;
-}
-
-static const struct md_ent *
-md_pack_find(const struct md_ent *ents, unsigned n, const char *name)
-{
-	unsigned i;
-
-	for (i = 0; i < n; i++) {
-		if (strncmp(ents[i].name, name, MD_PACK_NAME - 1) == 0) {
-			return &ents[i];
-		}
-	}
-	return NULL;
-}
-
 /* The first 52 bytes must be a 32-bit little-endian ELF header with 2..128 phdrs,
  * the same shape pandora_adsp.c pas_load() insists on before it touches SCM. */
 static bool
-md_mdt_shaped(const struct md_ent *ent)
+md_mdt_shaped(const struct md_leg *leg)
 {
 	uint8_t hdr[MD_ELF_HDR];
-	unsigned ptype = 0, phnum;
+	unsigned ptype, phnum;
 	int err;
 
-	err = pandora_fw_read(ent->off, hdr, sizeof(hdr));
+	err = pandora_fw_volume_read(MD_VOL, leg->path, 0, hdr, sizeof(hdr));
 	if (err) {
-		printf("PANDORA MODEM: %s: header read failed %d\n", ent->name, err);
+		printf("PANDORA MODEM: %s: header read failed %d\n", leg->path, err);
 		return false;
 	}
 	ptype = hdr[0] | (unsigned)hdr[1] << 8 | (unsigned)hdr[2] << 16 | (unsigned)hdr[3] << 24;
 	phnum = hdr[44] | (unsigned)hdr[45] << 8;
 	if (ptype != 0x464c457fu || hdr[4] != 1 || phnum < 2 || phnum > 128) {
 		printf("PANDORA MODEM: %s: not a 32-bit ELF header (magic %#x class %u phnum %u)\n",
-		    ent->name, ptype, (unsigned)hdr[4], phnum);
+		    leg->path, ptype, (unsigned)hdr[4], phnum);
 		return false;
 	}
-	printf("PANDORA MODEM: %s: ELF32, %u phdrs\n", ent->name, phnum);
+	printf("PANDORA MODEM: %s: ELF32, %u phdrs\n", leg->path, phnum);
 	return true;
 }
 
-/* Read the leg out of the pack, check its size, print one line. Nothing is loaded. */
+/* Stat the leg in the modemfirmware volume, check its size, print one line. Nothing is
+ * read into the carveout and no SCM call is made. */
 static int
-md_leg_check(const struct md_ent *ents, unsigned n, const struct md_leg *leg)
+md_leg_check(const struct md_leg *leg)
 {
-	const struct md_ent *ent;
+	uint64_t size = 0;
 	const char *shape = "";
+	int err;
 
-	ent = md_pack_find(ents, n, leg->name);
-	if (!ent) {
-		printf("PANDORA MODEM: leg %-24s %-72s MISSING from the pack\n",
-		    leg->what, leg->name);
-		return ENOENT;
+	err = pandora_fw_volume_size(MD_VOL, leg->path, &size);
+	if (err) {
+		printf("PANDORA MODEM: leg %-24s %-72s MISSING from modemfirmware (%d)\n",
+		    leg->what, leg->path, err);
+		return err;
 	}
-	if (ent->size < leg->min || ent->size > leg->max) {
+	if (size < leg->min || size > leg->max) {
 		printf("PANDORA MODEM: leg %-24s %s is %llu bytes, outside %llu..%llu\n",
-		    leg->what, leg->name, (unsigned long long)ent->size,
+		    leg->what, leg->path, (unsigned long long)size,
 		    (unsigned long long)leg->min, (unsigned long long)leg->max);
 		return EINVAL;
 	}
 	if (leg->header) {
-		if (!md_mdt_shaped(ent)) {
+		if (!md_mdt_shaped(leg)) {
 			printf("PANDORA MODEM: leg %-24s %s is %llu bytes, header shape bad\n",
-			    leg->what, leg->name, (unsigned long long)ent->size);
+			    leg->what, leg->path, (unsigned long long)size);
 			return EINVAL;
 		}
 		shape = " (ELF32 ok)";
 	}
-	printf("PANDORA MODEM: leg %-24s %s: %llu bytes, offset %#llx%s\n", leg->what,
-	    leg->name, (unsigned long long)ent->size, (unsigned long long)ent->off, shape);
+	printf("PANDORA MODEM: leg %-24s %s: %llu bytes%s\n", leg->what, leg->path,
+	    (unsigned long long)size, shape);
 	return 0;
 }
 
 /*
- * Every leg's precondition, in every mode: this is the firmware checklist the driver
- * can state about itself, and it is the whole of the mcfg code path (leg 3).
+ * Every leg's precondition, in every mode: the firmware checklist the driver can state
+ * about itself, and the whole of the mcfg code path (leg 3).
  */
 static void
 md_survey_fw(void)
 {
-	struct md_ent ents[MD_PACK_ENTS];
-	unsigned n, i;
+	unsigned i;
 	int worst = 0;
 
-	memset(ents, 0, sizeof(ents));
-	n = md_pack_read(ents);
-	if (!n) {
-		printf("PANDORA MODEM: no firmware pack: all %u legs are unavailable\n",
-		    (unsigned)MD_NLEGS);
-		return;
-	}
 	for (i = 0; i < MD_NLEGS; i++) {
-		int err = md_leg_check(ents, n, &md_legs[i]);
+		int err = md_leg_check(&md_legs[i]);
 		if (err && !worst) {
 			worst = err;
 		}
 	}
 	printf("PANDORA MODEM: firmware checklist -> %d (%u legs)\n", worst, (unsigned)MD_NLEGS);
-
-	/* The .bNN companions the loader will ask for, listed but not opened. */
-	for (i = 0; i < n; i++) {
-		if (strncmp(ents[i].name, "modem", 5) != 0 &&
-		    strncmp(ents[i].name, "modem_pr", 8) != 0) {
-			continue;
-		}
-		if (ents[i].size > MD_CFG_MAX && strncmp(ents[i].name, "modem_pr", 8) == 0) {
-			continue;       /* the mcfg tree has hundreds of entries; the legs above name the ones used */
-		}
-		printf("PANDORA MODEM:   pack %-44s %10llu bytes\n", ents[i].name,
-		    (unsigned long long)ents[i].size);
-	}
 }
 
 #if defined(MD_PARSER_PRAGMA)
@@ -296,7 +245,8 @@ modem_thread(void *arg, wait_result_t result)
 	(void)PE_parse_boot_argn("pandora_modem_delay", &delay_s, sizeof(delay_s));
 	printf("PANDORA MODEM: probe (mode %d, delay %u s)\n", mode, delay_s);
 
-	/* Legs 1-3: presence, size and header shape, read-only, every mode. */
+	/* Legs 1-3: presence, size and header shape in modemfirmware_<slot>, read-only,
+	 * every mode. */
 	md_survey_fw();
 
 	if (mode < 2) {
@@ -307,9 +257,9 @@ modem_thread(void *arg, wait_result_t result)
 
 	/* qcom_q6v5_pas shuts MD_PAS_STOP down before touching the firmware
 	 * (adsp_load prologue: ldr w0,[x21,#0x1e0]; cbz; bl sp->shutdown). */
-	err = pandora_pas_load_auth("modem_dtb", MD_PAS_DTB, MD_DTB_PA, MD_DTB_SIZE);
+	err = pandora_pas_load_auth_part("modem_dtb", MD_PAS_DTB, MD_DTB_PA, MD_DTB_SIZE, MD_VOL);
 	printf("PANDORA MODEM: dtb image -> %d\n", err);
-	err = pandora_pas_load_auth("modem", MD_PAS_MAIN, MD_MEM_PA, MD_MEM_SIZE);
+	err = pandora_pas_load_auth_part("modem", MD_PAS_MAIN, MD_MEM_PA, MD_MEM_SIZE, MD_VOL);
 	printf("PANDORA MODEM: main image -> %d\n", err);
 	if (!err) {
 		printf("PANDORA MODEM: modem released from reset\n");

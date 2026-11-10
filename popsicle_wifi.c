@@ -49,7 +49,30 @@
  *            wifi_poweron=0, and step 0's read-back when it is 1);
  *   step 2 - PCIe root PARF identity words (safe before link training);
  *   step 2b - PCIe root PARF 0x00..0x7c raw hex dump; no semantics are assumed for it,
- *            the offsets are printed and not interpreted.
+ *            the offsets are printed and not interpreted;
+ *   step 2c - the DTS-named link state: PARF + 0x414 bit 7 (qcom,phy-status-offset /
+ *            -bit) and the PCIe state-machine registers qcom,pcie-sm-debug lists
+ *            (0x1040..0x109c) inside the pcie_sm window, plus the start word at
+ *            qcom,pcie-sm-start-offset 0x1090. Still read-only: these say whether the
+ *            boot loader already trained the link, which decides whether a real port
+ *            has to run the PHY sequence at all;
+ *   step 2d - the ELBI window's 0xa8 bytes, raw. ELBI is where the root complex parks
+ *            per-vector status, and it is small enough to print whole.
+ *
+ * What is still missing for a working radio (0231), in the order it has to happen:
+ *   1 link training - the PHY sequence qcom,pcie-phy-sequence holds ~200 (offset, value)
+ *     pairs; without it the endpoint never answers. qcom,boot-option = <1> says the boot
+ *     loader may have done it already, which is exactly what step 2c measures;
+ *   2 clocks and resets - resets = <&gcc 6 &gcc 9> (pcie_0_core_reset,
+ *     pcie_0_phy_reset) plus the pipe/aux/slv clocks; none of those are voted here;
+ *   3 regulators - VDDA_PCIE_0P9 / VDDA_PCIE_1P2 (S7F0) are RPMh-owned;
+ *   4 enumeration - bus-range <0 0xff>, ranges <0x1000000 ...> for config/mem;
+ *   5 SMMU - qcom,smmu-sid-base 0x1400, iommu-map to a stream map this tree does not
+ *     program for PCIe;
+ *   6 firmware - ath12k-class peach: amss20.bin + bdwlan.elf are TZ-authed, so the
+ *     driver hands bytes to SCM rather than running them, and the QMI/QRTR control
+ *     channel (qcom,qrtr-mhi-cnss) is not implemented here either.
+ * Steps 1-3 above are the blockers; 4-6 come after them and are not attempted.
  */
 
 #include <kern/clock.h>
@@ -73,9 +96,37 @@ void popsicle_wifi_init(void);    /* called from sweet_ufs.c; prototype keeps -W
 #define TLMM_STRIDE             0x1000UL        /* one config window per pin on this SoC -- NOT the 0x10 stride of older TLMM blocks */
 #define GPIO_PIN_MAX            205             /* dev-sol, the highest pin in the table below */
 #define TLMM_SIZE               (((GPIO_PIN_MAX) + 1) * TLMM_STRIDE)    /* 0x0ce000: derived from the pin table, not copied from the DT's pre-offset 0x202000 */
-#define PCIE_PARF_PHYS          0x01c00000UL    /* /soc/pcie@1c00000 reg[0] "parf" */
-#define PCIE_PARF_SIZE          0x00010000UL
+#define PCIE_PARF_PHYS          0x01c00000UL    /* reg[0] "parf"  0x1c00000 + 0x3000 */
+#define PCIE_PARF_SIZE          0x00003000UL    /* the DTS says 0x3000, not 0x10000 */
 #define PCIE_PARF_DUMP_BYTES    0x80u           /* step 2b: 32 words, 0x00..0x7c */
+/*
+ * The rest of /soc/pcie@1c00000's reg, in reg-names order. /soc has
+ * #address-cells = 2, so each entry is <hi lo> <size_hi size_lo>:
+ *   "phy"      <0x0 0x1c06000>  <0x0 0x2000>
+ *   "dm_core"  <0x4 0x0>        <0x0 0x10000000>   256 MiB -- never mapped whole
+ *   "elbi"     <0x4 0xf20>      <0x0 0xa8>         inside the dm_core window
+ *   "iatu"     <0x4 0x10000000> <0x0 0x1000>
+ *   "pcie_sm"  <0x0 0x1d07000>  <0x0 0x7000>
+ * Only the small ones are mapped: a 256 MiB ml_io_map of dm_core is the kind of call
+ * that panicked this tree before (docs/GPU_PORT_MAP.md), and nothing here reads it.
+ */
+#define PCIE_PHY_PHYS           0x01c06000ULL   /* "phy" */
+#define PCIE_PHY_SIZE           0x00002000ULL
+#define PCIE_ELBI_PHYS          0x400000f20ULL  /* "elbi": (0x4 << 32) | 0xf20 */
+#define PCIE_ELBI_SIZE          0x000000a8ULL
+#define PCIE_SM_PHYS            0x01d07000ULL   /* "pcie_sm" */
+#define PCIE_SM_SIZE            0x00007000ULL
+
+/* qcom,phy-status-offset / qcom,phy-status-bit: the ready bit of the PHY block. */
+#define PCIE_PHY_STATUS_OFF     0x414u
+#define PCIE_PHY_STATUS_BIT     7u
+/* qcom,pcie-sm-start-offset and qcom,pcie-sm-branch-offset, in pcie_sm. */
+#define PCIE_SM_START_OFF       0x1090u
+#define PCIE_SM_BRANCH_OFF      0x1000u
+/* qcom,pcie-sm-debug: the fourteen words the vendor driver watches while it trains. */
+#define PCIE_SM_DEBUG_FIRST     0x1040u
+#define PCIE_SM_DEBUG_STEP      0x8u
+#define PCIE_SM_DEBUG_COUNT     14u
 
 #define GPIO_WLAN_EN            16
 #define GPIO_SW_CTRL            18
@@ -111,7 +162,7 @@ void popsicle_wifi_init(void);    /* called from sweet_ufs.c; prototype keeps -W
 /* step 2b must stay inside the mapped window: fail the build, not the boot. */
 _Static_assert(PCIE_PARF_DUMP_BYTES <= PCIE_PARF_SIZE, "PARF dump exceeds PCIE_PARF_SIZE");
 
-static vm_offset_t tlmm, pcie_parf;
+static vm_offset_t tlmm, pcie_parf, pcie_phy, pcie_elbi, pcie_sm;
 static bool wifi_poweron;       /* boot-arg wifi_poweron=1; default off, gates step 0 */
 
 static uint32_t
@@ -226,6 +277,58 @@ wifi_step2b_parf_dump(void)
 	}
 }
 
+/*
+ * Step 2c: the link state the DTS itself names. qcom,boot-option = <1> means the boot
+ * loader is allowed to bring this link up, and the vendor driver reads exactly these
+ * two places to find out whether it did: the PHY ready bit, and the state machine's
+ * start word. Everything is a read; the values are printed raw with their meaning
+ * stated only where the DTS states it.
+ */
+static void
+wifi_step2c_link(void)
+{
+	uint32_t status = *(volatile uint32_t *)(pcie_parf + PCIE_PHY_STATUS_OFF);
+	bool ready = ((status >> PCIE_PHY_STATUS_BIT) & 1u) != 0;
+	uint32_t start = *(volatile uint32_t *)(pcie_sm + PCIE_SM_START_OFF);
+	uint32_t branch = *(volatile uint32_t *)(pcie_sm + PCIE_SM_BRANCH_OFF);
+
+	printf("popsicle_wifi: step2c parf[0x%x] = 0x%08x -> phy %s (bit %u)\n",
+	    PCIE_PHY_STATUS_OFF, status, ready ? "READY" : "not ready", PCIE_PHY_STATUS_BIT);
+	printf("popsicle_wifi: step2c pcie_sm[0x%x] = 0x%08x (qcom,pcie-sm-start-offset)\n",
+	    PCIE_SM_START_OFF, start);
+	printf("popsicle_wifi: step2c pcie_sm[0x%x] = 0x%08x (qcom,pcie-sm-branch-offset)\n",
+	    PCIE_SM_BRANCH_OFF, branch);
+	printf("popsicle_wifi: step2c link %s: %s\n",
+	    ready ? "appears trained" : "is not trained",
+	    ready ? "an endpoint may already answer; enumeration comes next"
+	          : "the PHY sequence has to run before anything can enumerate");
+
+	/* The fourteen words qcom,pcie-sm-debug names, in order, still raw. */
+	printf("popsicle_wifi: step2c pcie_sm debug words 0x%x..0x%x (qcom,pcie-sm-debug)\n",
+	    PCIE_SM_DEBUG_FIRST, PCIE_SM_DEBUG_FIRST + PCIE_SM_DEBUG_STEP * (PCIE_SM_DEBUG_COUNT - 1));
+	for (unsigned i = 0; i < PCIE_SM_DEBUG_COUNT; i++) {
+		unsigned off = PCIE_SM_DEBUG_FIRST + i * PCIE_SM_DEBUG_STEP;
+		printf("popsicle_wifi: pcie_sm[0x%04x] = 0x%08x\n", off,
+		    *(volatile uint32_t *)(pcie_sm + off));
+	}
+}
+
+/*
+ * Step 2d: the ELBI window whole (0xa8 bytes = 42 words). It is small, it is the root
+ * complex's own status block, and there is no point guessing which word matters
+ * before this driver has ever read one.
+ */
+static void
+wifi_step2d_elbi(void)
+{
+	printf("popsicle_wifi: step2d ELBI 0x%llx + 0x%llx, raw\n",
+	    (unsigned long long)PCIE_ELBI_PHYS, (unsigned long long)PCIE_ELBI_SIZE);
+	for (unsigned off = 0; off + 4 <= PCIE_ELBI_SIZE; off += 4) {
+		printf("popsicle_wifi: elbi[0x%02x] = 0x%08x\n", off,
+		    *(volatile uint32_t *)(pcie_elbi + off));
+	}
+}
+
 /* ---- the thread ---------------------------------------------------------------------------------
  * popsicle_syna.c L1446: same polled-thread shape; the survey runs once and exits. */
 static void
@@ -236,14 +339,15 @@ wifi_thread(__unused void *parameter, __unused wait_result_t result)
 
 	tlmm = ml_io_map_unmappable(TLMM_PHYS, TLMM_SIZE, VM_WIMG_IO);
 	pcie_parf = ml_io_map_unmappable(PCIE_PARF_PHYS, PCIE_PARF_SIZE, VM_WIMG_IO);
-	if (tlmm == 0 || pcie_parf == 0) {
-		printf("popsicle_wifi: cannot map TLMM/PCIe PARF\n");
-		if (tlmm != 0) {
-/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
-		}
-		if (pcie_parf != 0) {
-/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
-		}
+	pcie_phy = ml_io_map_unmappable(PCIE_PHY_PHYS, PCIE_PHY_SIZE, VM_WIMG_IO);
+	pcie_elbi = ml_io_map_unmappable(PCIE_ELBI_PHYS, PCIE_ELBI_SIZE, VM_WIMG_IO);
+	pcie_sm = ml_io_map_unmappable(PCIE_SM_PHYS, PCIE_SM_SIZE, VM_WIMG_IO);
+	if (tlmm == 0 || pcie_parf == 0 || pcie_phy == 0 || pcie_elbi == 0 || pcie_sm == 0) {
+		printf("popsicle_wifi: cannot map TLMM/PCIe: tlmm %p parf %p phy %p elbi %p sm %p\n",
+		    (void *)tlmm, (void *)pcie_parf, (void *)pcie_phy, (void *)pcie_elbi,
+		    (void *)pcie_sm);
+		/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics
+		 * (pandora_dpu.c r1b), so there is nothing to release here either. */
 		thread_terminate(current_thread());
 		return;
 	}
@@ -254,9 +358,12 @@ wifi_thread(__unused void *parameter, __unused wait_result_t result)
 	wifi_step1_pins();
 	wifi_step2_pcie();
 	wifi_step2b_parf_dump();
+	wifi_step2c_link();
+	wifi_step2d_elbi();
 
 	printf("popsicle_wifi: survey done (GPIO levels are the boot-loader state; reads were TLMM "
-	       "config/level and PCIe PARF 0x00..0x7c -- %s)\n",
+	       "config/level, PCIe PARF 0x00..0x7c, the PHY status bit, the state machine's debug "
+	       "words and ELBI -- %s)\n",
 	    wifi_poweron ? "plus the announced gpio16/gpio18 power-on writes" : "no writes");
 /* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
 /* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics (pandora_dpu.c r1b) */
