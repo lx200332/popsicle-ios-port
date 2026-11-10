@@ -79,6 +79,12 @@ extern vm_offset_t ml_io_map(vm_offset_t, vm_size_t);
 extern vm_offset_t ml_io_map_unmappable(vm_offset_t, vm_size_t, uint32_t);
 extern kern_return_t thread_terminate(thread_t);
 extern int pandora_fw_read(uint64_t off, void *dst, uint64_t len);   /* bsd/dev/sweet_ufs.c */
+/* The bluetooth partition carries the ganges firmware as real files and the shared
+ * FatVolume reader now accepts its FAT12 layout, so read it from there: the firmware is
+ * already on the device, whereas the pinned pack has to be rebuilt and pushed by hand.
+ * pandora_bt_fw=pack goes back to the pack. */
+extern int pandora_fw_volume_size(int part, const char *path, uint64_t *size);
+extern int pandora_fw_volume_read(int part, const char *path, uint64_t off, void *dst, uint64_t len);
 void pandora_bt_init(void);
 
 static int bt_chan;     /* assert_wait_deadline's event, same shape pandora_touch.c:162 uses */
@@ -431,6 +437,51 @@ bt_hci_cmd(uint16_t op, const uint8_t *par, uint8_t plen, uint8_t *ev, size_t ev
 
 /* One file out of the pinned pack into a kalloc_data buffer; NULL and *out_len 0
  * when the pack or the entry is missing. Same directory walk as pandora_amp.c:363. */
+/* FW_BT: index of the bluetooth partition in the volume table of pandora_adsp.c. */
+#define FW_BT 3
+
+static bool bt_want_pack(void)
+{
+	char how[8] = "";
+
+	return PE_parse_boot_arg_str("pandora_bt_fw", how, sizeof(how)) && !strcmp(how, "pack");
+}
+
+/* One firmware file from the bluetooth partition, or NULL when it is not there. */
+static uint8_t *
+bt_fw_from_part(const char *name, uint32_t *out_len)
+{
+	char path[64];
+	uint64_t len = 0;
+	uint8_t *buf;
+	int e;
+
+	snprintf(path, sizeof(path), "image/%s", name);
+	e = pandora_fw_volume_size(FW_BT, path, &len);
+	if (e) {
+		printf("PANDORA BT: fw: %s not in the bluetooth partition (%d)\n", name, e);
+		return NULL;
+	}
+	if (!len || len > BT_FW_MAX) {
+		printf("PANDORA BT: fw: %s has unusable size %llu\n", name, len);
+		return NULL;
+	}
+	buf = kalloc_data((vm_size_t)len, Z_WAITOK);
+	if (!buf) {
+		printf("PANDORA BT: fw: cannot allocate %llu bytes\n", len);
+		return NULL;
+	}
+	e = pandora_fw_volume_read(FW_BT, path, 0, buf, len);
+	if (e) {
+		printf("PANDORA BT: fw: %s read failed %d\n", name, e);
+		kfree_data(buf, (vm_size_t)len);
+		return NULL;
+	}
+	printf("PANDORA BT: fw: %s %llu bytes from the bluetooth partition\n", name, len);
+	*out_len = (uint32_t)len;
+	return buf;
+}
+
 static uint8_t *
 bt_fw_load(const char *name, uint32_t *out_len)
 {
@@ -443,6 +494,13 @@ bt_fw_load(const char *name, uint32_t *out_len)
 	int e;
 
 	*out_len = 0;
+	if (!bt_want_pack()) {
+		buf = bt_fw_from_part(name, out_len);
+		if (buf) {
+			return buf;
+		}
+		printf("PANDORA BT: fw: falling back to the pinned pack\n");
+	}
 	e = pandora_fw_read(0, dir, sizeof(dir));
 	if (e) {
 		printf("PANDORA BT: fw: pack read failed %d\n", e);
@@ -806,7 +864,25 @@ static int
 bt_fw_probe(void)
 {
 	static uint8_t dir[4096];
-	int e = pandora_fw_read(0, dir, sizeof(dir));
+	static const char *want[] = {"gngbtfw20.tlv", "gngbtfw20.mbn", "gngbtnv20.bin",
+		"gngbcscal20.bin"};
+	int e;
+
+	if (!bt_want_pack()) {
+		char path[64];
+		uint64_t got = 0;
+
+		for (unsigned i = 0; i < sizeof(want) / sizeof(want[0]); i++) {
+			snprintf(path, sizeof(path), "image/%s", want[i]);
+			if (pandora_fw_volume_size(FW_BT, path, &got)) {
+				printf("PANDORA BT: %s is not in the bluetooth partition\n", want[i]);
+			} else {
+				printf("PANDORA BT: %s %llu bytes in the bluetooth partition\n",
+				    want[i], got);
+			}
+		}
+	}
+	e = pandora_fw_read(0, dir, sizeof(dir));
 	if (e) {
 		printf("PANDORA BT: firmware pack read failed %d (no pack?)\n", e);
 		return e;
@@ -817,8 +893,6 @@ bt_fw_probe(void)
 	}
 	uint32_t count = *(uint32_t *)(void *)(dir + 8);
 	printf("PANDORA BT: firmware pack: %u files\n", count);
-	static const char *want[] = {"gngbtfw20.tlv", "gngbtfw20.mbn", "gngbtnv20.bin",
-		"gngbcscal20.bin"};
 	unsigned found = 0;
 	for (unsigned i = 0; i < count && i < 63u; i++) {
 		const uint8_t *ent = dir + 16 + i * 64;

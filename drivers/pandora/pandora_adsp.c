@@ -503,14 +503,16 @@ struct fw_ent {
 };
 static struct fw_ent ad_dir[63];
 static unsigned ad_nfiles;
-/* FW_PACK reads the pinned pack; FW_MODEM and FW_MF read the FAT of modem_<slot> and
+/* FW_PACK reads the pinned pack; FW_MODEM, FW_MF and FW_BT read the FAT of modem_<slot>,
+ * modemfirmware_<slot> and bluetooth_<slot>;
  * modemfirmware_<slot>. They are different partitions: modem_a holds adsp.mdt and
  * adsp_dtb.mdt, modemfirmware_a holds modem.mdt, modem_dtb.mdt and the modem_pr tree
  * (the OTA's modem/image has no modem.mdt at all; modemfirmware/image has it). */
 #define FW_PACK   0
 #define FW_MODEM  1
 #define FW_MF     2
-#define FW_VOLS   3
+#define FW_BT     3
+#define FW_VOLS   4
 
 static FatVolume ad_fat[FW_VOLS];
 static int ad_fat_state[FW_VOLS];        /* 0 not tried, 1 mounted, -1 not usable */
@@ -595,7 +597,9 @@ fw_mount(int which)
 		ad_slot_ready = true;
 		IOLog("PANDORA ADSP: slot %c (%s)\n", ad_slot, from_arg ? "boot-arg" : "default");
 	}
-	snprintf(part, sizeof(part), "%s_%c", which == FW_MF ? "modemfirmware" : "modem", ad_slot);
+	snprintf(part, sizeof(part), "%s_%c",
+	    which == FW_MF ? "modemfirmware" : (which == FW_BT ? "bluetooth" : "modem"),
+	    ad_slot);
 	int err = pandora_part_find2(part, &ad_parts[which]);
 	if (err) {
 		printf("PANDORA ADSP: partition %s not found: %d\n", part, err);
@@ -703,7 +707,8 @@ pas_load(const char *base, int part, unsigned pas, uint64_t mem_pa, uint64_t mem
 	struct fw_file mdt;
 	if (fw_open(name, part, &mdt) || mdt.size < 52 || mdt.size > 0x10000) {
 		printf("PANDORA ADSP: %s missing in the %s\n", name,
-		    part == FW_PACK ? "pack" : part == FW_MF ? "modemfirmware partition" : "modem partition");
+		    part == FW_PACK ? "pack" : part == FW_MF ? "modemfirmware partition" :
+		    part == FW_BT ? "bluetooth partition" : "modem partition");
 		return ENOENT;
 	}
 	static uint8_t hdr[0x10000];
@@ -741,7 +746,8 @@ pas_load(const char *base, int part, unsigned pas, uint64_t mem_pa, uint64_t mem
 	uint32_t ehdr_size = ph[0].p_filesz, hash_size = ph[hash].p_filesz;
 	uint64_t md_size = ((uint64_t)ehdr_size + hash_size + 0xfff) & ~0xfffull;
 	printf("PANDORA ADSP: %s (%s): %u segments, hash %u (%u bytes), load %#llx-%#llx%s\n", name,
-	    part == FW_PACK ? "pack" : part == FW_MF ? "modemfirmware partition" : "modem partition",
+	    part == FW_PACK ? "pack" : part == FW_MF ? "modemfirmware partition" :
+	    part == FW_BT ? "bluetooth partition" : "modem partition",
 	    phnum, hash, hash_size, min, max, reloc ? " relocatable" : "");
 	if (max - min > mem_size) {
 		printf("PANDORA ADSP: %s does not fit its carveout\n", name);
