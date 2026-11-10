@@ -175,6 +175,17 @@ scm_smc_raw(uint64_t fn, uint64_t arginfo, uint64_t x2, uint64_t x3, uint64_t x4
 	}
 }
 
+/* pandora_scm_smc is defined below; the in-file callers keep the short name. */
+void pandora_scm_smc(uint64_t fn, uint64_t arginfo, uint64_t x2, uint64_t x3, uint64_t x4,
+    uint64_t x5, struct scm_res *res);
+
+static void
+scm_smc(uint64_t fn, uint64_t arginfo, uint64_t x2, uint64_t x3, uint64_t x4, uint64_t x5,
+    struct scm_res *res)
+{
+	pandora_scm_smc(fn, arginfo, x2, x3, x4, x5, res);
+}
+
 #define SCM_FN(svc, cmd)  ((1ULL << 30) | (2ULL << 24) | (((uint64_t)(svc) & 0xff) << 8) | ((cmd) & 0xff))
 #define SCM_ARGS(n)       ((uint64_t)(n) & 0xf)
 #define SCM_RW            2u
@@ -197,8 +208,13 @@ scm_smc_raw(uint64_t fn, uint64_t arginfo, uint64_t x2, uint64_t x3, uint64_t x4
 LCK_GRP_DECLARE(ad_scm_grp, "pandora_scm");
 LCK_MTX_DECLARE(ad_scm_lock, &ad_scm_grp);
 
-static void
-scm_smc(uint64_t fn, uint64_t arginfo, uint64_t x2, uint64_t x3, uint64_t x4, uint64_t x5,
+/*
+ * One SMC in flight at a time, under ad_scm_lock. Not static: pandora_modem.c needs the
+ * same lock for its PAS shutdown, and a second copy of the smc #0 loop would let two CPUs
+ * enter the monitor together, which is the hang qcom_scm-smc.c's lock exists to avoid.
+ */
+void
+pandora_scm_smc(uint64_t fn, uint64_t arginfo, uint64_t x2, uint64_t x3, uint64_t x4, uint64_t x5,
     struct scm_res *res)
 {
 	static unsigned logged;

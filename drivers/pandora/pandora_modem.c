@@ -39,8 +39,19 @@
  *
  * The three legs of the PAS chain, and where each one stands (0229):
  *
- *   1 modem.mdt      pandora_pas_load_auth_part("modem", MD_PAS_MAIN, ..., MD_VOL)   code path present
- *   2 modem_dtb.mdt  pandora_pas_load_auth_part("modem_dtb", MD_PAS_DTB, ..., MD_VOL) code path present
+ *   0 shutdown       qcom_scm_pas_shutdown(MD_PAS_STOP) -- qcom_q6v5_pas shuts the
+ *                    remote down before it touches any image (adsp_load prologue:
+ *                    ldr w0,[x21,#0x1e0]; cbz; bl sp->shutdown). Without this the
+ *                    modem may still be running the boot loader's image and both
+ *                    PAS_INIT_IMAGE calls fight it.
+ *   1 modem_dtb.mdt  the DTB image goes first, and MD_PAS_DTB (38) is the id that
+ *                    carries PAS_AUTH_AND_RESET -- canoe_mpss_resource +0x28 is the
+ *                    main-path id, +0x24 the extra image. adsp_start +0x1e6c reads
+ *                    +0x1dc (which adsp_probe fills from +0x28) and calls
+ *                    qcom_scm_pas_auth_and_reset with it.
+ *   2 modem.mdt      loaded as the extra image (MD_PAS_MAIN = 4 = +0x24): init_image
+ *                    and mem_setup only, no auth. Authing it as well, as an earlier
+ *                    revision of this driver did, asks TZ to reset a processor twice.
  *   3 mcfg           NOT a PAS image and there was no code path at all: the modem
  *                    software reads the whole modem_pr/mcfg tree itself once it is
  *                    up, over GLINK/QRTR, which this tree does not implement. Here
@@ -96,6 +107,20 @@ extern int pandora_fw_volume_read(int part, const char *path, uint64_t off, void
 #define MD_MDT_MIN       52ull
 #define MD_MDT_MAX       0x10000ull
 #define MD_CFG_MAX       (1ull << 20)
+
+/* pandora_adsp.c owns the SMC transport and its lock; this file only needs the shutdown
+ * pair, so it borrows the same entry point rather than opening a second one. */
+struct scm_res {
+	uint64_t a0, a1, a2, a3;
+};
+
+extern void pandora_scm_smc(uint64_t fn, uint64_t arginfo, uint64_t x2, uint64_t x3,
+    uint64_t x4, uint64_t x5, struct scm_res *res);
+
+#define SCM_FN(svc, cmd) \
+	((1ULL << 30) | (2ULL << 24) | (((uint64_t)(svc) & 0xff) << 8) | ((cmd) & 0xff))
+#define SCM_ARGS(n)      ((uint64_t)(n) & 0xf)
+
 
 static int md_chan;
 
@@ -233,6 +258,22 @@ md_survey_fw(void)
 #undef MD_PARSER_PRAGMA
 #endif
 
+/*
+ * qcom_scm_pas_shutdown: SCM_FN(2, 6) is PAS_SHUTDOWN and SCM_FN(2, 7) is
+ * PAS_SUPPORTED, the same pair the ADSP path uses (pandora_adsp.c adsp_boot). Asking
+ * "supported" first turns an unsupported id from a silent failure into a log line.
+ */
+static void
+md_pas_shutdown(unsigned pas)
+{
+	struct scm_res sup, res;
+
+	pandora_scm_smc(SCM_FN(2, 7), SCM_ARGS(1), pas, 0, 0, 0, &sup);
+	pandora_scm_smc(SCM_FN(2, 6), SCM_ARGS(1), pas, 0, 0, 0, &res);
+	printf("PANDORA MODEM: pas %u supported a0 %#llx a1 %#llx, shutdown -> a0 %#llx a1 %#llx\n",
+	    pas, sup.a0, sup.a1, res.a0, res.a1);
+}
+
 static void
 modem_thread(void *arg, wait_result_t result)
 {
@@ -255,24 +296,30 @@ modem_thread(void *arg, wait_result_t result)
 	}
 	md_sleep(delay_s * 1000u);
 
-	/* qcom_q6v5_pas shuts MD_PAS_STOP down before touching the firmware
-	 * (adsp_load prologue: ldr w0,[x21,#0x1e0]; cbz; bl sp->shutdown). */
+	/* Order copied from qcom_q6v5_pas, which is what the vendor driver runs: stop the
+	 * remote first, load the DTB image (the one that carries auth), then the main
+	 * image as an extra one. The header gives the offset behind each id. */
+	md_pas_shutdown(MD_PAS_STOP);
+
 	err = pandora_pas_load_auth_part("modem_dtb", MD_PAS_DTB, MD_DTB_PA, MD_DTB_SIZE, MD_VOL);
-	printf("PANDORA MODEM: dtb image -> %d\n", err);
+	printf("PANDORA MODEM: dtb image (pas %u, carries auth) -> %d\n", MD_PAS_DTB, err);
+	if (err) {
+		/* This is the image TZ authenticates. Staging the main image after it
+		 * failed would only produce a second, less specific error, so stop and
+		 * say which leg broke. */
+		printf("PANDORA MODEM: dtb image failed, main image not attempted\n");
+		goto out_stop;
+	}
 	err = pandora_pas_load_auth_part("modem", MD_PAS_MAIN, MD_MEM_PA, MD_MEM_SIZE, MD_VOL);
-	printf("PANDORA MODEM: main image -> %d\n", err);
+	printf("PANDORA MODEM: main image (pas %u, extra image) -> %d\n", MD_PAS_MAIN, err);
 	if (!err) {
 		printf("PANDORA MODEM: modem released from reset\n");
 		md_sleep(2000);
 	}
-	printf("PANDORA MODEM: stop id %u is the pre-load shutdown handle\n", MD_PAS_STOP);
-	/*
-	 * Leg 3 has no PAS call and no write: mcfg reaches the modem over GLINK/QRTR
-	 * once the modem software is running, which this tree does not implement. The
-	 * preconditions were checked by md_survey_fw(); say so rather than pretend.
-	 */
-	printf("PANDORA MODEM: mcfg leg: checked above, not loaded (needs GLINK/QRTR, "
-	    "not implemented in this tree)\n");
+	goto out;
+out_stop:
+	/* qcom_pas_start's error path: undo the auth of the image that did load. */
+	md_pas_shutdown(MD_PAS_DTB);
 out:
 	printf("PANDORA MODEM: done\n");
 	(void)thread_terminate(current_thread());
