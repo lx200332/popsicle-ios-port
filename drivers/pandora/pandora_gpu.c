@@ -987,10 +987,47 @@ gpu_level5(void)
 	gmu_wr(GMU_CM3_SYSRESET, 1);
 	gmu_wr(GMU_GENERAL_9, 0);
 	gpu_step("GMU: release CM3 reset");
+	/* Probe 0321.  boot7 / klogA stop at the step above with no panic and no later GPU line, so
+	 * the four segments below are separated: whichever "probe" line is last is the one that
+	 * never returns.  Everything here is a register read or write already in this path; the
+	 * only cost is six log lines. */
+	printf("PANDORA GPU: probe a: sysreset reads %08x before release\n", gmu_rd(GMU_CM3_SYSRESET));
+	printf("PANDORA GPU: probe b: releasing\n");
 	gmu_wr(GMU_CM3_SYSRESET, 0);
-	uint32_t r = gpu_poll(gpu_gmu, GMU_REG(GMU_CM3_FW_INIT_RESULT), mask, want, 100000, &ok);
+	printf("PANDORA GPU: probe c: released, sysreset reads %08x, fw init result reads %08x\n",
+	    gmu_rd(GMU_CM3_SYSRESET), gmu_rd(GMU_CM3_FW_INIT_RESULT));
+	printf("PANDORA GPU: probe d: polling for %08x under mask %08x\n", want, mask);
+	/* Probe 0322: the poll is inlined so each phase logs.  probe c already read this exact
+	 * register twice, so a hang here is either the first read of the loop, the delay, or a
+	 * later read. */
+	printf("PANDORA GPU: probe g: first read\n");
+	uint32_t r = gmu_rd(GMU_CM3_FW_INIT_RESULT);
+	printf("PANDORA GPU: probe h: first read %08x\n", r);
+	unsigned t = 0;
+	while ((r & mask) != want && t < 100000) {
+		if (t == 0) {
+			printf("PANDORA GPU: probe i: first delay\n");
+		}
+		delay(10);
+		if (t == 0) {
+			printf("PANDORA GPU: probe j: first delay done\n");
+		}
+		r = gmu_rd(GMU_CM3_FW_INIT_RESULT);
+		/* Probe 0323: print every 500 us of the loop.  If the last line is exactly the first
+		 * multiple of 500 after the previous one, a register read stopped returning. */
+		if ((t % 500) == 0) {
+			printf("PANDORA GPU: probe k: t=%u read %08x\n", t, r);
+		}
+		t += 10;
+	}
+	ok = (r & mask) == want;
+	printf("PANDORA GPU: probe e: poll returned %08x after %u us, ok %d\n", r, t, ok);
+	/* The read of the interrupt status used to sit inside the printf argument list, so a hang
+	 * there suppressed the whole line.  Kept in its own statement now. */
+	uint32_t ao = gmu_rd(GMU_AO_HOST_INTR_STATUS);
+	printf("PANDORA GPU: probe f: ao_host_irq %08x\n", ao);
 	printf("PANDORA GPU: GMU fw init result %08x (want %#x under mask %#x) %s; ao_host_irq %08x\n", r, want,
-	    mask, ok ? "BOOTED" : "TIMED OUT", gmu_rd(GMU_AO_HOST_INTR_STATUS));
+	    mask, ok ? "BOOTED" : "TIMED OUT", ao);
 	if (!ok) {
 		gmu_wr(GMU_CM3_SYSRESET, 1);
 		return false;
