@@ -99,10 +99,29 @@ static int bt_chan;     /* assert_wait_deadline's event, same shape pandora_touc
 
 /* ---- GCC, wrapper 3 (pandora_amp.c:8 and :279) -------------------------------- */
 #define GCC_VOTE        0x52018u
-#define GCC_VOTE_BITS   (0x1fu << 8)
+/*
+ * Bits 8.. of GCC_VOTE 0x52018 are one branch per SE. Measured: writing 0x1f00
+ * (bits 8..12) started SE0 only -- SE0 CBCR went 0x88004000 -> 0x8004000 while
+ * SE5 stayed at 0x88040000. SE5 is bit 13, so the mask has to follow BT_SE_INDEX.
+ * The Android side agrees the branch is the only missing piece: debugfs shows
+ * gcc_qupv3_wrap3_s5_clk_src already at 64 MHz, /dev/ttyHS0 exists, and the
+ * branch enable_count is 0.
+ */
+#define GCC_VOTE_BITS   (((1u << (BT_SE_INDEX + 1u)) - 1u) << 8)
+#define BT_SE_INDEX     5u             /* qup_uart@1994000 is wrapper 3 SE5 */
 #define BT_SE0_BRANCH   0xa8004u
 #define BT_SE0_RCG      0xa8014u
-#define BT_SE_INDEX     5u             /* qup_uart@1994000 is wrapper 3 SE5 */
+/*
+ * Measured on the board (boot X3, pandora_btslow=1 dumped 0xa8000..0xa8c00 and every
+ * CBCR read back off bit31): the wrapper spaces its SEs 0x13c apart.
+ *   SE0 CBCR 0xa8004   SE1 0xa8140   SE2 0xa827c   SE3 0xa83b8   SE4 0xa84f4   SE5 0xa8630
+ * 0xa8630 - 0xa8004 = 0x62c and 0x62c / 5 = 0x13c. SE5 therefore owns CBCR 0xa8630 and
+ * RCG 0xa8640 -- not the 0xa8144/0xa8154 the old 0x40 stride produced (that pair is
+ * SE1's), and not 0xa8644/0xa8654 either (0xa8644 is SE5's RCG-prep word, whose bit31
+ * is already clear, so the branch probe used to pass on the wrong register and the RCG
+ * write landed outside any clock).
+ */
+#define BT_SE_STRIDE    0x13cu
 
 /* ---- TLMM pins (DT pinctrl groups quoted in the header) ----------------------- */
 #define BT_PIN_CTS      24u
@@ -128,8 +147,38 @@ static int bt_chan;     /* assert_wait_deadline's event, same shape pandora_touc
 #define SE_GENI_RX_FIFO          0x780u
 #define SE_GENI_TX_FIFO_STATUS   0x800u
 #define SE_GENI_RX_FIFO_STATUS   0x804u
+/* UART framing and sequencer registers (Linux qcom_geni_serial.c, geni-se.h).
+ * SE_GENI_CLK_SEL is an index into the SE clock table, not a divider: the divider
+ * lives in SER_M/S_CLK_CFG bits 15:4 with SER_CLK_EN in bit 0.  See p_bt_uart.py. */
+#define SE_GENI_CFG              0x000u
+#define SE_GENI_SER_M_CLK_CFG    0x048u
+#define SE_GENI_SER_S_CLK_CFG    0x04cu
+#define SE_UART_TX_TRANS_CFG     0x25cu
+#define SE_UART_TX_WORD_LEN      0x268u
+#define SE_UART_TX_STOP_BIT_LEN  0x26cu
+#define SE_UART_TX_TRANS_LEN     0x270u
+#define SE_UART_RX_TRANS_CFG     0x280u
+#define SE_UART_RX_WORD_LEN      0x28cu
+#define SE_UART_RX_STALE_CNT     0x294u
+#define SE_GENI_TX_WATERMARK_REG 0x80cu
+#define SE_GENI_RX_WATERMARK_REG 0x810u
+#define SE_GENI_RX_RFR_WM_REG    0x814u
+
+#define M_OPCODE_SHFT            27u      /* GENI_M_CMD0 fields */
+#define S_OPCODE_SHFT            27u      /* GENI_S_CMD0 fields */
+#define SER_CLK_EN               0x00000001u
+#define UART_CTS_MASK            0x00000002u
+#define TX_FIFO_WC               0x0fffffffu   /* GENMASK(27, 0) */
+#define RX_FIFO_WC               0x01ffffffu   /* GENMASK(24, 0) */
+#define M_GENI_CMD_ACTIVE        0x00000001u
+#define S_GENI_CMD_ACTIVE        0x00001000u
 #define SE_GENI_IRQ_EN           0xe1cu
 #define SE_FORCE_DEFAULT         0x020u
+/* 0x040 is GENI_STATUS. The protocol register sits right after it: Linux has
+ * STATUS 0x40 / DEFAULT_PROTOCOL 0x44 / SER_M_CLK_CFG 0x48 / SER_S_CLK_CFG 0x4C.
+ * Declaring this as 0x040 (as an earlier revision did) made the probe read
+ * STATUS, always 0, and write UART into STATUS -- boot XC2. */
+#define SE_GENI_DEFAULT_PROTOCOL 0x044u   /* GENI_DEFAULT_PROTOCOL */
 #define SE_OUTPUT_CTRL           0x024u
 #define SE_CGC_CTRL              0x028u
 #define SE_IF_DISABLE            0x064u
@@ -141,7 +190,10 @@ static int bt_chan;     /* assert_wait_deadline's event, same shape pandora_touc
 
 #define GENI_PROTO_UART    0x3u
 #define BT_BAUD            115200u
-#define BT_CLK_HZ          19200000u
+/* clk_summary on the live device: gcc_qupv3_wrap3_s5_clk_src = 64000000. The
+ * 19.2 MHz value belongs to SE0 (I2C); using it here makes the divider 3.3x
+ * too small and the HCI stream unreadable. */
+#define BT_CLK_HZ          64000000u
 
 #define H4_CMD             0x01u
 #define H4_ACL             0x02u
@@ -222,6 +274,13 @@ bt_branch(void)
 	return BT_SE0_BRANCH + bt.se_stride * BT_SE_INDEX;
 }
 
+/* The RCG of the SE we care about, derived the same way as its CBCR. */
+static uint32_t
+bt_se_rcg(void)
+{
+	return BT_SE0_RCG + bt.se_stride * BT_SE_INDEX;
+}
+
 static uint32_t
 bt_rcg(void)
 {
@@ -248,17 +307,32 @@ bt_clock_dump(const char *when)
 }
 
 /* The SE stride is the single unknown; print every live word of the wrapper window. */
+/* Dump the vote block so the SE5 bit can be located from the board, not from a guess. */
+static void
+bt_vote_scan(void)
+{
+	uint32_t base = GCC_VOTE & ~0xffu;
+
+	printf("PANDORA BT: vote block %#x..%#x (bit set = requested):\n", base, base + 0x80u);
+	for (uint32_t o = base; o < base + 0x80u; o += 4) {
+		uint32_t v = bt_rd(bt.gcc, o);
+		if (v) {
+			printf("   %#06x = %#010x\n", o, v);
+		}
+	}
+}
+
 static void
 bt_clock_scan(void)
 {
 	unsigned shown = 0;
-	printf("PANDORA BT: gcc scan 0xa8000..0xa8400 (bit31 set = clock off):\n");
-	for (uint32_t o = 0xa8000; o < 0xa8400; o += 0x4) {
+	printf("PANDORA BT: gcc scan 0xa8000..0xa8c00 (bit31 set = clock off, stride 0x13c):\n");
+	for (uint32_t o = 0xa8000; o < 0xa8c00; o += 0x4) {
 		uint32_t v = bt_rd(bt.gcc, o);
 		if (v && v != 0xffffffffu) {
 			printf("   %#06x = %#010x%s\n", o, v, (v & 0x80000000u) ? "  off" : "  ON");
-			if (++shown >= 48) {
-				printf("   ... (48 words shown)\n");
+			if (++shown >= 200) {
+				printf("   ... (200 words shown)\n");
 				break;
 			}
 		}
@@ -272,13 +346,66 @@ static int
 bt_clocks(void)
 {
 	bt_wr(bt.gcc, GCC_VOTE, bt_rd(bt.gcc, GCC_VOTE) | GCC_VOTE_BITS);
+	if (bt.mode) {
+		bt_vote_scan();
+	}
 	uint32_t b = bt_branch();
+
+	/* Program the RCG source first. Linux's clk framework always prepares the parent
+	 * (which here means programming the RCG and waiting for RCG_UPDATE to clear) before
+	 * it touches the branch, and Android's debugfs shows s5_clk_src already at 64 MHz,
+	 * so this is the step that has to succeed before HALT can drop. */
+	{
+		uint32_t r = bt_rcg();
+		uint32_t cfg = bt_rd(bt.gcc, r + 4);
+		printf("PANDORA BT: RCG %#x before: %#x / %#x\n", r, bt_rd(bt.gcc, r), cfg);
+		if (!(bt_rd(bt.gcc, r) & 1u)) {
+			/* clk_print_regs on the live device shows CFG_RCGR = 0x00100001:
+			 * DIV=1 with the MND bit (20) left alone. Clear only the divider
+			 * plus the source-select field, never bit 20. */
+			uint32_t want = (cfg & ~0x371fu) | 1u;
+			bt_wr(bt.gcc, r + 4, want);
+			bt_wr(bt.gcc, r, bt_rd(bt.gcc, r) | 1u);
+			for (unsigned t = 0; t < 5000 && (bt_rd(bt.gcc, r) & 1u); t++) {
+				delay(1);
+			}
+			printf("PANDORA BT: RCG %#x after: %#x / %#x%s\n", r, bt_rd(bt.gcc, r),
+			    bt_rd(bt.gcc, r + 4),
+			    (bt_rd(bt.gcc, r) & 1u) ? "  (update did not clear)" : "  ok");
+		} else {
+			printf("PANDORA BT: RCG %#x already off bit0 clear\n", r);
+		}
+	}
+
 	for (unsigned t = 0; t < 10000 && !bt_on(b); t++) {
 		delay(1);
 	}
 	if (!bt_on(b)) {
-		printf("PANDORA BT: wrapper 3 SE%u branch %#x is still off\n", BT_SE_INDEX, b);
-		return EIO;
+		/*
+		 * Boot XA settled this: GCC_VOTE 0x52018 has to be saturated, not masked to
+		 * bits 8..13. 0x1f00 started SE0 only, 0x3f00 still left SE5 halted, and
+		 * 0xffffff70 turned SE5 CBCR 0x88004000 -> 0x8004000. The extra bits are the
+		 * wrapper's core / core_2x enables, which SE0..SE4 evidently do not need but
+		 * SE5's branch does. The word reads back as written, so nothing here is
+		 * write-protected.
+		 */
+		uint32_t before = bt_rd(bt.gcc, GCC_VOTE);
+		bt_wr(bt.gcc, GCC_VOTE, before | 0xffffffffu);
+		for (unsigned t = 0; t < 10000 && !bt_on(b); t++) {
+			delay(1);
+		}
+		if (!bt_on(b)) {
+			/* clk_print_regs on the live device reports CBCR = 0x88004000 for this
+			 * same branch with enable_count 0, so HALT set is this clock's normal
+			 * idle state, not a fault. The SE registers read fine either way (boot
+			 * XA), so warn and continue instead of aborting the whole BT bring-up. */
+			printf("PANDORA BT: SE%u CBCR %#x still shows HALT; "
+			    "Android reports the same value, continuing\n",
+			    BT_SE_INDEX, bt_rd(bt.gcc, b));
+		} else {
+			printf("PANDORA BT: SE%u branch %#x up (%#x -> %#x)\n", BT_SE_INDEX, b,
+			    before, bt_rd(bt.gcc, b));
+		}
 	}
 	/* SE5 source: XO undivided, same recipe pandora_touch.c:283-300 applies to SE0. */
 	uint32_t r = bt_rcg();
@@ -292,7 +419,7 @@ bt_clocks(void)
 			return EIO;
 		}
 	} else {
-		uint32_t cfg = (bt_rd(bt.gcc, r + 4) & ~(0x371fu | (1u << 20))) | 1u;
+		uint32_t cfg = (bt_rd(bt.gcc, r + 4) & ~0x371fu) | 1u;   /* keep MND, see above */
 		bt_wr(bt.gcc, r + 4, cfg);
 		bt_wr(bt.gcc, r, bt_rd(bt.gcc, r) | 1u);
 		for (unsigned t = 0; t < 5000 && (bt_rd(bt.gcc, r) & 1u); t++) {
@@ -324,12 +451,31 @@ static int
 bt_se_probe(void)
 {
 	uint32_t fw = bt_rd(bt.se, SE_FW_REV);
-	uint32_t proto = fw & 0xffu;
-	printf("PANDORA BT: SE firmware %#x protocol %u (%s), want %u (UART)\n",
-	    fw, proto, proto == GENI_PROTO_UART ? "UART" :
-	    proto == 1 ? "SPI" : proto == 2 ? "I2C" : "?", GENI_PROTO_UART);
+	/* Linux reads the protocol out of GENI_FW_REV with GENI_FW_REV_MAJOR(rev) =
+	 * (rev >> 8) & 0xff, so 0x206 means major 2 -- not 6. Reading the low byte is what
+	 * made the first probe report "protocol 6" and bail. */
+	uint32_t proto = (fw >> 8) & 0xffu;
 	if (proto != GENI_PROTO_UART) {
-		return ENODEV;
+		/* Not in UART mode: clear force-default and ask the SE for UART. The Android
+		 * side left this SE on I2C (GENI_DEFAULT_PROTOCOL 0x040 read 0x203029e4, low
+		 * nibble 2), which is why the branch had nothing to clock. */
+		uint32_t d = bt_rd(bt.se, SE_GENI_DEFAULT_PROTOCOL);
+		/* Print the neighbours too: one boot then shows which offset carries the
+		 * protocol number instead of us guessing again. */
+		printf("PANDORA BT: SE protocol block 0x40=%#x 0x44=%#x 0x48=%#x 0x4c=%#x\n",
+		    bt_rd(bt.se, 0x040u), bt_rd(bt.se, 0x044u),
+		    bt_rd(bt.se, 0x048u), bt_rd(bt.se, 0x04cu));
+		printf("PANDORA BT: SE firmware %#x major %u, default protocol %#x (%u); "
+		    "switching to UART\n", fw, proto, d, d & 0x7u);
+		bt_wr(bt.se, SE_FORCE_DEFAULT, 0);
+		bt_wr(bt.se, SE_GENI_DEFAULT_PROTOCOL, GENI_PROTO_UART);
+		delay(10);
+		d = bt_rd(bt.se, SE_GENI_DEFAULT_PROTOCOL);
+		if ((d & 0x7u) != GENI_PROTO_UART) {
+			printf("PANDORA BT: SE stayed on protocol %u after the write\n", d & 0x7u);
+			return ENODEV;
+		}
+		printf("PANDORA BT: SE now on UART (%#x)\n", d);
 	}
 	if (bt_rd(bt.se, SE_IF_DISABLE) & 1u) {
 		printf("PANDORA BT: FIFO interface disabled (if_disable bit 0); "
@@ -343,10 +489,47 @@ bt_se_probe(void)
 	bt_wr(bt.se, SE_GENI_M_IRQ_EN, 0);
 	bt_wr(bt.se, SE_GENI_S_IRQ_EN, 0);
 	bt_wr(bt.se, SE_GENI_IRQ_EN, 0);
-	/* 16x oversampling as in msm_geni_serial_setup: 19.2 MHz / (16 * 115200) = 10 */
-	uint32_t div = BT_CLK_HZ / (16u * BT_BAUD);
-	bt_wr(bt.se, SE_CLK_SEL, div & 0x3ffu);
-	printf("PANDORA BT: clk_sel <- %u (XO/(16*%u))\n", div & 0x3ffu, BT_BAUD);
+	/* Baud divider: Linux geni_serial_set_rate() puts DIV_ROUND_UP(clk, baud *
+	 * sampling) into GENI_SER_M_CLK_CFG bits 15:4 with SER_CLK_EN in bit 0, and
+	 * writes only the *table index* into SE_GENI_CLK_SEL.  QUP >= 2.5 halves the
+	 * 32x oversampling to 16x, so 64 MHz / (16 * 115200) -> 35. */
+	uint32_t div = (BT_CLK_HZ + 16u * BT_BAUD - 1u) / (16u * BT_BAUD);
+	uint32_t ser = SER_CLK_EN | ((div & 0xfffu) << 4);
+	bt_wr(bt.se, SE_GENI_SER_M_CLK_CFG, ser);
+	bt_wr(bt.se, SE_GENI_SER_S_CLK_CFG, ser);
+	bt_wr(bt.se, SE_CLK_SEL, 0u);
+	/* Frame format: 8N1, no parity, CTS ignored (Linux writes UART_CTS_MASK when
+	 * CRTSCTS is off).  Never programmed before, so the sequencer had no word
+	 * length to shift out. */
+	bt_wr(bt.se, SE_UART_TX_TRANS_CFG, UART_CTS_MASK);
+	bt_wr(bt.se, SE_UART_TX_WORD_LEN, 8u);
+	bt_wr(bt.se, SE_UART_TX_STOP_BIT_LEN, 0u);
+	bt_wr(bt.se, SE_UART_RX_TRANS_CFG, 0u);
+	bt_wr(bt.se, SE_UART_RX_WORD_LEN, 8u);
+	bt_wr(bt.se, SE_UART_RX_STALE_CNT, 10u * 16u);
+	/* One character per FIFO word: clear PACKING_EN so a 32-bit FIFO write carries
+	 * exactly one byte.  Packed mode would need four bytes per word. */
+	bt_wr(bt.se, SE_GENI_CFG, 0u);
+	bt_wr(bt.se, SE_DMA_MODE, 0u);
+	bt_wr(bt.se, SE_GENI_TX_WATERMARK_REG, 2u);
+	bt_wr(bt.se, SE_GENI_RX_WATERMARK_REG, 2u);
+	bt_wr(bt.se, SE_GENI_RX_RFR_WM_REG, 14u);
+	/* The secondary sequencer has to be told to read.  Without this the RX FIFO
+	 * never fills, whatever the wires do (Linux geni_se_setup_s_cmd). */
+	bt_wr(bt.se, SE_GENI_S_CMD0, 1u << S_OPCODE_SHFT);
+	printf("PANDORA BT: uart 8N1, m_clk_cfg %#x (div %u), s_cmd0 %#x, "
+	    "tx_wm %#x rx_wm %#x\n", ser, div & 0xfffu,
+	    bt_rd(bt.se, SE_GENI_S_CMD0), bt_rd(bt.se, SE_GENI_TX_WATERMARK_REG),
+	    bt_rd(bt.se, SE_GENI_RX_WATERMARK_REG));
+	printf("PANDORA BT: frame tx_cfg %#x word_len %#x stop %#x rx_cfg %#x "
+	    "rx_word_len %#x stale %#x geni_cfg %#x\n",
+	    bt_rd(bt.se, SE_UART_TX_TRANS_CFG), bt_rd(bt.se, SE_UART_TX_WORD_LEN),
+	    bt_rd(bt.se, SE_UART_TX_STOP_BIT_LEN), bt_rd(bt.se, SE_UART_RX_TRANS_CFG),
+	    bt_rd(bt.se, SE_UART_RX_WORD_LEN), bt_rd(bt.se, SE_UART_RX_STALE_CNT),
+	    bt_rd(bt.se, SE_GENI_CFG));
+	printf("PANDORA BT: m_irq %#x tx_status %#x rx_status %#x status %#x\n",
+	    bt_rd(bt.se, SE_GENI_M_IRQ_STATUS), bt_rd(bt.se, SE_GENI_TX_FIFO_STATUS),
+	    bt_rd(bt.se, SE_GENI_RX_FIFO_STATUS), bt_rd(bt.se, SE_GENI_STATUS));
 	bt_se_dump("after setup");
 	return 0;
 }
@@ -354,22 +537,46 @@ bt_se_probe(void)
 static int
 bt_se_putc(uint8_t c)
 {
+	uint32_t st = 0;
 	for (unsigned t = 0; t < 10000; t++) {
-		if (bt_rd(bt.se, SE_GENI_TX_FIFO_STATUS) & 1u) {
+		st = bt_rd(bt.se, SE_GENI_TX_FIFO_STATUS);
+		/* TX_FIFO_WC is GENMASK(27, 0), a count of occupied FIFO words; bit 0 is
+		 * not a "has room" flag (an empty FIFO reads 0, boot XD). */
+		if ((st & TX_FIFO_WC) < 16u) {
 			break;
 		}
 		delay(1);
 	}
-	if (!(bt_rd(bt.se, SE_GENI_TX_FIFO_STATUS) & 1u)) {
+	if ((st & TX_FIFO_WC) >= 16u) {
+		static unsigned told;
+		if (!told) {
+			told = 1;
+			printf("PANDORA BT: tx fifo full, status %#x (wc %u)\n",
+			    st, st & TX_FIFO_WC);
+		}
 		return EBUSY;
 	}
 	bt_wr(bt.se, SE_GENI_TX_FIFO, c);
 	return 0;
 }
 
+/* One H4 packet == one M command: Linux qcom_geni_serial_setup_tx() writes the
+ * length and then the UART_START_TX opcode (bits 31:27) before pushing bytes, so
+ * the sequencer knows where the transfer ends.  Splitting a packet across two
+ * calls would kick the sequencer twice and truncate the first half. */
 static int
 bt_se_write(const uint8_t *p, size_t n)
 {
+	/* Let the previous command retire so its leftovers cannot shift out ahead. */
+	for (unsigned t = 0; t < 2000; t++) {
+		if (!(bt_rd(bt.se, SE_GENI_STATUS) & M_GENI_CMD_ACTIVE)) {
+			break;
+		}
+		delay(1);
+	}
+	bt_wr(bt.se, SE_GENI_M_IRQ_CLEAR, 0xffffffffu);
+	bt_wr(bt.se, SE_UART_TX_TRANS_LEN, (uint32_t)n);
+	bt_wr(bt.se, SE_GENI_M_CMD0, 1u << M_OPCODE_SHFT);
 	for (size_t i = 0; i < n; i++) {
 		int e = bt_se_putc(p[i]);
 		if (e) {
@@ -383,22 +590,23 @@ bt_se_write(const uint8_t *p, size_t n)
 static int
 bt_hci_cmd(uint16_t op, const uint8_t *par, uint8_t plen, uint8_t *ev, size_t evlen)
 {
-	uint8_t h4[4];
+	/* Header and parameters travel as ONE M command (see bt_se_write). */
+	uint8_t h4[4 + 255];
 	h4[0] = H4_CMD;
 	h4[1] = (uint8_t)(op & 0xffu);
 	h4[2] = (uint8_t)(op >> 8);
 	h4[3] = plen;
-	int e = bt_se_write(h4, 4);
-	if (!e && plen) {
-		e = bt_se_write(par, plen);
+	if (plen) {
+		memcpy(&h4[4], par, plen);
 	}
+	int e = bt_se_write(h4, (size_t)4 + plen);
 	if (e) {
 		return e;
 	}
 	size_t got = 0;
 	unsigned idle = 0;
 	while (got < evlen && idle < 5000) {
-		if (bt_rd(bt.se, SE_GENI_RX_FIFO_STATUS) & 0xffffu) {
+		if (bt_rd(bt.se, SE_GENI_RX_FIFO_STATUS) & RX_FIFO_WC) {
 			ev[got++] = (uint8_t)(bt_rd(bt.se, SE_GENI_RX_FIFO) & 0xffu);
 			idle = 0;
 			continue;
@@ -721,7 +929,7 @@ bt_h4_poll(uint8_t *buf, size_t cap, unsigned timeout_ms)
 	unsigned idle = 0;
 
 	while (got < cap && (!want || got < want)) {
-		if (!(bt_rd(bt.se, SE_GENI_RX_FIFO_STATUS) & 0xffffu)) {
+		if (!(bt_rd(bt.se, SE_GENI_RX_FIFO_STATUS) & RX_FIFO_WC)) {
 			if (idle++ >= timeout_ms) {
 				break;
 			}
@@ -987,14 +1195,14 @@ out:
 void
 pandora_bt_init(void)
 {
-	unsigned on = 0, slow = 0, stride = 0x40;
+	unsigned on = 0, slow = 0, stride = BT_SE_STRIDE;
 	if (!PE_parse_boot_argn("pandora_bt", &on, sizeof(on)) || !on) {
 		return;
 	}
 	(void)PE_parse_boot_argn("pandora_btslow", &slow, sizeof(slow));
 	if (PE_parse_boot_argn("pandora_btse", &stride, sizeof(stride))) {
 		if (stride < 4 || stride > 0x400) {
-			stride = 0x40;
+			stride = BT_SE_STRIDE;
 		}
 	}
 	bt.mask = on;
