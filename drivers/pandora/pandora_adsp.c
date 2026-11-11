@@ -869,6 +869,23 @@ pandora_pas_load_auth(const char *file, unsigned pas, uint64_t mem_pa, uint64_t 
 
 /* For bsd/dev/pandora_modem.c: one file's size in a firmware volume's FAT, or an errno.
  * PATH is relative to the volume root, so "image/modem.mdt". */
+/* fat_open() paths are relative to the volume root and fw_open() prepends "image/"
+ * itself, so the two volume helpers below, whose contract is "path relative to the
+ * volume root, i.e. including image/", have to take that prefix back off before
+ * handing the name over. Without this the lookup became image/image/<name>, which is
+ * why every modem leg read back ENOENT(2) and every bluetooth firmware was reported
+ * "not in the bluetooth partition" on 0255 even though both files were there. */
+static const char *
+fw_volume_name(const char *path)
+{
+	static const char image[] = "image/";
+
+	if (strncmp(path, image, sizeof(image) - 1) == 0) {
+		return path + sizeof(image) - 1;
+	}
+	return path;
+}
+
 int pandora_fw_volume_size(int part, const char *path, uint64_t *size);
 int
 pandora_fw_volume_size(int part, const char *path, uint64_t *size)
@@ -881,7 +898,7 @@ pandora_fw_volume_size(int part, const char *path, uint64_t *size)
 	if ((err = fw_mount(part))) {
 		return err;
 	}
-	if ((err = fw_open(path, part, &f))) {
+	if ((err = fw_open(fw_volume_name(path), part, &f))) {
 		return err;
 	}
 	*size = f.size;
@@ -902,7 +919,7 @@ pandora_fw_volume_read(int part, const char *path, uint64_t off, void *dst, uint
 	if ((err = fw_mount(part))) {
 		return err;
 	}
-	if ((err = fw_open(path, part, &f))) {
+	if ((err = fw_open(fw_volume_name(path), part, &f))) {
 		return err;
 	}
 	return fw_pread(&f, off, dst, len);
