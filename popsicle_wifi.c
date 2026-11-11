@@ -115,6 +115,58 @@ void popsicle_wifi_init(void);    /* called from sweet_ufs.c; prototype keeps -W
 #define PCIE_ELBI_PHYS          0x400000f20ULL  /* "elbi": (0x4 << 32) | 0xf20 */
 #define PCIE_ELBI_SIZE          0x000000a8ULL
 #define PCIE_SM_PHYS            0x01d07000ULL   /* "pcie_sm" */
+/*
+ * The GCC block. Every PCIe access so far returned zero without aborting, which
+ * means the root complex answers its bus slave but has no GDSC rail and no clock:
+ * power-domains = <&gcc 1> ("gdsc-phy-vdd") is the rail that gates it.
+ * GCC itself is reachable from here -- pandora_usb.c already reads GCC and got
+ * BCR 00000000 / GDSCR fa22f800 -- so probing it cannot hang the bus the way the
+ * unclocked PARF did. The window covers 0x39000 (USB30_PRIM, known good) through
+ * 0x3c000 (where the PCIe GDSC/BCR pair lives on the neighbouring SoCs).
+ */
+#define GCC_PHYS                0x00100000ULL
+#define GCC_SIZE                0x00080000ULL     /* the PCIe GDSC pair sits at 0x6b000, above the USB block */
+#define GCC_USB_SANITY_OFF      0x00039004u     /* USB30_PRIM_GDSCR, a read that is known to work */
+/*
+ * The two PCIe power domains, read out of GCC on the real board (0251):
+ *   gcc[0x6b004] = 0x0222f801  pcie_0     SW_COLLAPSE set -> collapsed
+ *   gcc[0x6c000] = 0x02222801  pcie_0_phy SW_COLLAPSE set -> collapsed
+ *   gcc[0x39004] = 0xfa22f800  usb30_prim SW_COLLAPSE clear -> powered, which is
+ *                                         exactly why USB reads work and PCIe reads
+ *                                         return zeros or abort.
+ * These are the linux/drivers/clk/qcom/gdsc.c bits: bit 0 of GDSCR is SW_COLLAPSE
+ * (1 = power down), and the completion bits live in CFG_GDSCR at +0x4, bit 16 up /
+ * bit 15 down, which is what POLL_CFG_GDSCR polls.
+ */
+#define GCC_PCIE_GDSC           0x0006b004u     /* pcie_0 */
+#define GCC_PCIE_PHY_GDSC       0x0006c000u     /* pcie_0_phy */
+#define GDSC_SW_COLLAPSE        0x00000001u
+#define GDSC_CFG_OFF            0x00000004u
+#define GDSC_POWER_UP_COMPLETE  0x00010000u     /* bit 16 */
+#define GDSC_POWER_DOWN_COMPLETE 0x00008000u    /* bit 15 */
+#define GDSC_POLL_US            1000u
+/*
+ * Reading 0x3b000 aborted on its first word although 0x39004 answered, so the GCC
+ * window is not uniformly readable and a sweep cannot be used. These are the
+ * candidate offsets the neighbouring SoCs put the PCIe GDSC/BCR pair at, probed one
+ * at a time and each printed before the next is touched, so the log always says how
+ * far it got.
+ */
+struct wifi_gcc_cand { uint32_t off; const char *what; };
+static const struct wifi_gcc_cand wifi_gcc_cands[] = {
+	/* USB30_PRIM_GDSCR answers at 0x39004 here, byte for byte where sm8550 puts it,
+	 * so this GCC is laid out like that one and the PCIe pair should be at 0x6b004 /
+	 * 0x6c000. Every candidate is read in ascending order and printed before it is
+	 * touched, so an abort names the first unimplemented offset instead of hiding it. */
+	{ 0x6b000u, "pcie_0 BCR" },
+	{ 0x6b004u, "pcie_0 GDSCR" },
+	{ 0x6b008u, "pcie_0 CFG_GDSCR" },
+	{ 0x6c000u, "pcie_0_phy GDSCR" },
+	{ 0x6c004u, "pcie_0_phy CFG_GDSCR" },
+	{ 0x6f000u, "pcie_phy COM BCR" },
+	{ 0x6f010u, "pcie_phy COM BCR 2" },
+};
+#define WIFI_GCC_CANDS (sizeof(wifi_gcc_cands) / sizeof(wifi_gcc_cands[0]))
 #define PCIE_SM_SIZE            0x00007000ULL
 
 /* qcom,phy-status-offset / qcom,phy-status-bit: the ready bit of the PHY block. */
@@ -163,7 +215,12 @@ void popsicle_wifi_init(void);    /* called from sweet_ufs.c; prototype keeps -W
 _Static_assert(PCIE_PARF_DUMP_BYTES <= PCIE_PARF_SIZE, "PARF dump exceeds PCIE_PARF_SIZE");
 
 static vm_offset_t tlmm, pcie_parf, pcie_phy, pcie_elbi, pcie_sm;
+static vm_offset_t gcc;         /* only for the PCIe rail probe (step 3) */
 static bool wifi_poweron;       /* boot-arg wifi_poweron=1; default off, gates step 0 */
+/* PANDORA: reading the ELBI window before the link is up resets the board (0248). */
+static bool wifi_elbi;          /* boot-arg wifi_elbi=1; default off, gates step 2d */
+static bool wifi_gcc;           /* boot-arg wifi_gcc=1; default off, gates step 3 (read-only) */
+static bool wifi_gdsc;          /* boot-arg wifi_gdsc=1; default off, gates step 4 (WRITES GCC) */
 
 static uint32_t
 tlmm_read_cfg(unsigned pin)
@@ -314,6 +371,149 @@ wifi_step2c_link(void)
 }
 
 /*
+ * Bring one GDSC up: clear SW_COLLAPSE, then poll its CFG_GDSCR for the up bit. The
+ * sequence mirrors linux/drivers/clk/qcom/gdsc.c gdsc_toggle_logic() with
+ * POLL_CFG_GDSCR, which is the flag these SoCs use; the wait values are already in the
+ * register and are left alone. Returns true when the domain reports powered.
+ */
+static bool
+wifi_gdsc_on(uint32_t off, const char *what)
+{
+	volatile uint32_t *gdscr = (volatile uint32_t *)(gcc + off);
+	volatile uint32_t *cfg = (volatile uint32_t *)(gcc + off + GDSC_CFG_OFF);
+	uint32_t before = *gdscr;
+	uint32_t after, cfgv = 0;
+	unsigned waited = 0;
+
+	if ((before & GDSC_SW_COLLAPSE) == 0) {
+		printf("popsicle_wifi: gdsc %s (gcc[0x%05x]) = 0x%08x, already powered\n",
+		    what, off, before);
+		return true;
+	}
+
+	printf("popsicle_wifi: gdsc %s (gcc[0x%05x]) = 0x%08x, clearing SW_COLLAPSE\n",
+	    what, off, before);
+	*gdscr = before & ~GDSC_SW_COLLAPSE;
+
+	while (waited < GDSC_POLL_US) {
+		cfgv = *cfg;
+		if (cfgv & GDSC_POWER_UP_COMPLETE) {
+			break;
+		}
+		delay_for_interval(10, NSEC_PER_USEC);
+		waited += 10;
+	}
+
+	after = *gdscr;
+	printf("popsicle_wifi: gdsc %s after %u us: gcc[0x%05x] = 0x%08x, cfg = 0x%08x -> %s\n",
+	    what, waited, off, after, cfgv,
+	    (cfgv & GDSC_POWER_UP_COMPLETE) ? "up" : "not up (bit 16 never set)");
+
+	if ((after & GDSC_SW_COLLAPSE) != 0) {
+		return false;
+	}
+
+	return (cfgv & GDSC_POWER_UP_COMPLETE) != 0 || cfgv == 0;
+}
+
+/*
+ * Step 4: power the PCIe domains up and re-read the places that used to answer
+ * zeros. If PARF starts returning something other than 0x00000000 the root complex is
+ * out of collapse and the rest of the bring-up (resets, clocks, PHY, PERST) has a
+ * base to build on. Writing is why this sits behind its own gate.
+ */
+static void
+wifi_step4_power(void)
+{
+	bool main_up, phy_up;
+	unsigned changed = 0;
+
+	main_up = wifi_gdsc_on(GCC_PCIE_GDSC, "pcie_0");
+	phy_up = wifi_gdsc_on(GCC_PCIE_PHY_GDSC, "pcie_0_phy");
+	printf("popsicle_wifi: step4 pcie_0 %s, pcie_0_phy %s\n",
+	    main_up ? "up" : "down", phy_up ? "up" : "down");
+
+	for (unsigned off = 0; off < PCIE_PARF_DUMP_BYTES; off += 4) {
+		uint32_t v = *(volatile uint32_t *)(pcie_parf + off);
+
+		if (v != 0) {
+			changed++;
+			printf("popsicle_wifi: step4 parf[0x%02x] = 0x%08x (was zero before power)\n",
+			    off, v);
+		}
+	}
+	printf("popsicle_wifi: step4 %u of %u PARF words are now nonzero\n",
+	    changed, (unsigned)(PCIE_PARF_DUMP_BYTES / 4));
+
+	/* The same two places step 2c read before power, read again now that the domains
+	 * are out of collapse: the PHY ready bit and the state machine's start word. */
+	{
+		uint32_t status = *(volatile uint32_t *)(pcie_parf + PCIE_PHY_STATUS_OFF);
+		uint32_t start = *(volatile uint32_t *)(pcie_sm + PCIE_SM_START_OFF);
+		uint32_t branch = *(volatile uint32_t *)(pcie_sm + PCIE_SM_BRANCH_OFF);
+
+		printf("popsicle_wifi: step4 parf[0x%x] = 0x%08x -> phy %s (bit %u, after power)\n",
+		    PCIE_PHY_STATUS_OFF, status,
+		    ((status >> PCIE_PHY_STATUS_BIT) & 1u) ? "READY" : "still not ready",
+		    PCIE_PHY_STATUS_BIT);
+		printf("popsicle_wifi: step4 pcie_sm[0x%x] = 0x%08x, [0x%x] = 0x%08x (after power)\n",
+		    PCIE_SM_START_OFF, start, PCIE_SM_BRANCH_OFF, branch);
+	}
+
+	/* ELBI is still unreadable with both GDSCs up (0252: this walk reset the board
+	 * even though the identical power-up alone did not), so it needs the link trained
+	 * and PERST released, not just the domains on. Kept behind wifi_elbi=1 so the
+	 * write path never touches it by accident. */
+	if (wifi_elbi) {
+		unsigned nz = 0;
+
+		for (unsigned off = 0; off + 4 <= PCIE_ELBI_SIZE; off += 4) {
+			uint32_t v = *(volatile uint32_t *)(pcie_elbi + off);
+
+			if (v != 0) {
+				nz++;
+				printf("popsicle_wifi: step4 elbi[0x%02x] = 0x%08x (after power)\n",
+				    off, v);
+			}
+		}
+		printf("popsicle_wifi: step4 %u of %u ELBI words are nonzero after power, window did not abort\n",
+		    nz, (unsigned)(PCIE_ELBI_SIZE / 4));
+	}
+}
+
+/*
+ * Step 3: find the PCIe power rail. The root complex answers its bus slave with
+ * zeros, so it is reachable but unpowered; on the neighbouring SoCs the GDSC that
+ * gates it sits a few kilobytes below / above the USB30_PRIM block at 0x39000. This
+ * walks the candidate window and prints only the words that are not zero, which keeps
+ * the log small and makes the rail easy to spot: a GDSC has its enable bit 0 and a
+ * POLL_CFG field above it. Nothing is written -- this step only localises the rail so
+ * the next revision can turn it on with a named offset instead of a guessed one.
+ */
+static void
+wifi_step3_gcc_probe(void)
+{
+	uint32_t sanity = *(volatile uint32_t *)(gcc + GCC_USB_SANITY_OFF);
+
+	printf("popsicle_wifi: step3 gcc[0x%x] = 0x%08x (USB30_PRIM_GDSCR, sanity)\n",
+	    GCC_USB_SANITY_OFF, sanity);
+	printf("popsicle_wifi: step3 probing %u candidate offsets one at a time; each printed BEFORE it is read\n",
+	    (unsigned)WIFI_GCC_CANDS);
+
+	for (unsigned k = 0; k < WIFI_GCC_CANDS; k++) {
+		const struct wifi_gcc_cand *c = &wifi_gcc_cands[k];
+		uint32_t v;
+
+		printf("popsicle_wifi: step3 about to read gcc[0x%05x] (%s)\n", c->off, c->what);
+		v = *(volatile uint32_t *)(gcc + c->off);
+		printf("popsicle_wifi: step3 gcc[0x%05x] = 0x%08x (%s)\n", c->off, v, c->what);
+	}
+	printf("popsicle_wifi: step3 all %u candidates answered, no abort\n",
+	    (unsigned)WIFI_GCC_CANDS);
+}
+
+
+/*
  * Step 2d: the ELBI window whole (0xa8 bytes = 42 words). It is small, it is the root
  * complex's own status block, and there is no point guessing which word matters
  * before this driver has ever read one.
@@ -342,10 +542,12 @@ wifi_thread(__unused void *parameter, __unused wait_result_t result)
 	pcie_phy = ml_io_map_unmappable(PCIE_PHY_PHYS, PCIE_PHY_SIZE, VM_WIMG_IO);
 	pcie_elbi = ml_io_map_unmappable(PCIE_ELBI_PHYS, PCIE_ELBI_SIZE, VM_WIMG_IO);
 	pcie_sm = ml_io_map_unmappable(PCIE_SM_PHYS, PCIE_SM_SIZE, VM_WIMG_IO);
-	if (tlmm == 0 || pcie_parf == 0 || pcie_phy == 0 || pcie_elbi == 0 || pcie_sm == 0) {
-		printf("popsicle_wifi: cannot map TLMM/PCIe: tlmm %p parf %p phy %p elbi %p sm %p\n",
+	gcc = ml_io_map_unmappable(GCC_PHYS, GCC_SIZE, VM_WIMG_IO);
+	if (tlmm == 0 || pcie_parf == 0 || pcie_phy == 0 || pcie_elbi == 0 || pcie_sm == 0 ||
+	    gcc == 0) {
+		printf("popsicle_wifi: cannot map TLMM/PCIe: tlmm %p parf %p phy %p elbi %p sm %p gcc %p\n",
 		    (void *)tlmm, (void *)pcie_parf, (void *)pcie_phy, (void *)pcie_elbi,
-		    (void *)pcie_sm);
+		    (void *)pcie_sm, (void *)gcc);
 		/* PANDORA: ml_io_map_unmappable mappings are permanent; unmap panics
 		 * (pandora_dpu.c r1b), so there is nothing to release here either. */
 		thread_terminate(current_thread());
@@ -359,7 +561,20 @@ wifi_thread(__unused void *parameter, __unused wait_result_t result)
 	wifi_step2_pcie();
 	wifi_step2b_parf_dump();
 	wifi_step2c_link();
-	wifi_step2d_elbi();
+	if (wifi_gcc) {
+		wifi_step3_gcc_probe();
+	}
+	if (wifi_gdsc) {
+		wifi_step4_power();
+	}
+	/* PANDORA: the ELBI window (0x4_00000f20, DTS reg[3]) is not readable until the
+	 * PCIe upstream port is out of reset. A plain load there raises a synchronous
+	 * external abort and resets the machine before the log ring is ever flushed
+	 * (measured 0248: step2c alone survives 63 s, step2d alone is a dead reset).
+	 * It is now opt-in behind wifi_elbi=1 so the survey cannot take the board down. */
+	if (wifi_elbi) {
+		wifi_step2d_elbi();
+	}
 
 	printf("popsicle_wifi: survey done (GPIO levels are the boot-loader state; reads were TLMM "
 	       "config/level, PCIe PARF 0x00..0x7c, the PHY status bit, the state machine's debug "
@@ -385,6 +600,18 @@ popsicle_wifi_init(void)
 		return;
 	}
 	wifi_poweron = PE_parse_boot_argn("wifi_poweron", &poweron, sizeof(poweron)) && poweron;
+	{
+		uint32_t elbi = 0;
+		wifi_elbi = PE_parse_boot_argn("wifi_elbi", &elbi, sizeof(elbi)) && elbi;
+	}
+	{
+		uint32_t g = 0;
+		wifi_gcc = PE_parse_boot_argn("wifi_gcc", &g, sizeof(g)) && g;
+	}
+	{
+		uint32_t d = 0;
+		wifi_gdsc = PE_parse_boot_argn("wifi_gdsc", &d, sizeof(d)) && d;
+	}
 
 	if (kernel_thread_start(wifi_thread, NULL, &thread) == KERN_SUCCESS) {
 		thread_deallocate(thread);
