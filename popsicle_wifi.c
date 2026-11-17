@@ -99,6 +99,12 @@ void popsicle_wifi_init(void);    /* called from sweet_ufs.c; prototype keeps -W
 #define PCIE_PARF_PHYS          0x01c00000UL    /* reg[0] "parf"  0x1c00000 + 0x3000 */
 #define PCIE_PARF_SIZE          0x00003000UL    /* the DTS says 0x3000, not 0x10000 */
 #define PCIE_PARF_DUMP_BYTES    0x80u           /* step 2b: 32 words, 0x00..0x7c */
+/* 0264: the full 0x80 only answers once the GDSCs are up.  boot-yz read 0x00..0x54
+ * (all zero) and then died on parf[0x58] with no abort line and no ring content --
+ * the same shape as the Bluetooth sweep that reset the phone on gcc[0x3b000].
+ * 0x58 bytes is the prefix a real boot produced, so that is what an unpowered
+ * dump may touch; step 4 widens it to PCIE_PARF_DUMP_BYTES once bit 16 says up. */
+#define PCIE_PARF_SAFE_BYTES    0x58u           /* 0x00..0x54, the measured-readback prefix */
 /*
  * The rest of /soc/pcie@1c00000's reg, in reg-names order. /soc has
  * #address-cells = 2, so each entry is <hi lo> <size_hi size_lo>:
@@ -211,6 +217,34 @@ static const struct wifi_gcc_cand wifi_gcc_cands[] = {
 #define TLMM_IO_LOW             0u              /* io word: bit0 = level in, bit1 = level out */
 #define TLMM_IO_HIGH            2u
 
+/* ---------------------------------------------------------------- iATU (M1)
+ * /soc/pcie@1c00000 reg[4] "iatu" = <0x4 0x10000000 0x0 0x1000> => 0x410000000.
+ * DWC v4.80a+ unrolls the region registers, so outbound region n starts at
+ * n*0x200 and inbound region n at n*0x200+0x100
+ * (pcie-designware.h: ATU_UNROLL_BASE(dir,index) = (index<<9) | (dir==IB ? BIT(8) : 0)).
+ * 8 regions * 0x200 = 0x1000, exactly the window size, so this part is unrolled
+ * and the 0x900 viewport is not a selector here.
+ * Store order is dw_pcie_prog_outbound_atu() (pcie-designware.c:533): base, limit,
+ * target, ctrl1, then ctrl2 -- ctrl2 carries ATU_ENABLE, so the window stays inert
+ * until that last store lands.
+ */
+#define PCIE_IATU_PHYS          0x410000000ULL
+#define PCIE_IATU_SIZE          0x00001000ULL
+#define PCIE_BAR0_PHYS          0x40400000ULL    /* BAR0 2 MiB, = reserved-memory cnss */
+#define PCIE_BAR0_SIZE          0x00200000ULL
+
+#define ATU_REGION_CTRL1        0x000u
+#define ATU_REGION_CTRL2        0x004u
+#define ATU_LOWER_BASE          0x008u
+#define ATU_UPPER_BASE          0x00Cu
+#define ATU_LIMIT               0x010u
+#define ATU_LOWER_TARGET        0x014u
+#define ATU_UPPER_TARGET        0x018u
+#define ATU_UPPER_LIMIT         0x020u
+#define ATU_ENABLE              0x80000000u
+#define ATU_TD                  0x00000100u       /* ECRC: set on cores before 5.10A */
+#define ATU_UNROLL(index, ib) ((uint32_t)((index) << 9) | ((ib) ? 0x100u : 0u))
+
 /* step 2b must stay inside the mapped window: fail the build, not the boot. */
 _Static_assert(PCIE_PARF_DUMP_BYTES <= PCIE_PARF_SIZE, "PARF dump exceeds PCIE_PARF_SIZE");
 
@@ -221,6 +255,20 @@ static bool wifi_poweron;       /* boot-arg wifi_poweron=1; default off, gates s
 static bool wifi_elbi;          /* boot-arg wifi_elbi=1; default off, gates step 2d */
 static bool wifi_gcc;           /* boot-arg wifi_gcc=1; default off, gates step 3 (read-only) */
 static bool wifi_gdsc;          /* boot-arg wifi_gdsc=1; default off, gates step 4 (WRITES GCC) */
+static bool wifi_iatu;          /* boot-arg wifi_iatu=1; default off, gates step 5 (WRITES iATU) */
+static vm_offset_t pcie_iatu;   /* 0x410000000, mapped only when wifi_iatu is set */
+static vm_offset_t pcie_bar0;   /* 0x40400000, the window step 5 makes answer */
+static bool wifi_bar0read;      /* boot-arg wifi_bar0read=1; the ONE read that aborts when the link is down */
+/* How much of PARF a blind dump may touch right now. Starts at the prefix a real
+ * boot proved readable and is raised to the full 0x80 only by step 4, after both
+ * PCIe GDSCs report powered. Never raise this before the domains are up. */
+static unsigned wifi_parf_bytes = PCIE_PARF_SAFE_BYTES;
+/* Same treatment for qcom,pcie-sm-debug (0x1040, step 8, 14 words). Only 0x1040
+ * has ever answered on an unpowered machine; boot-za died on the second word
+ * (0x1048), which is the same shape as parf[0x58]. One word until step 4 says the
+ * domains are up, then all fourteen. */
+static unsigned wifi_sm_words = 1u;
+static unsigned wifi_delayms;   /* boot-arg wifi_delayms=N; sleep before the first MMIO touch */
 
 static uint32_t
 tlmm_read_cfg(unsigned pin)
@@ -284,8 +332,12 @@ wifi_step0_power_on(void)
 	wifi_power_on_pin(GPIO_WLAN_EN, "wlan-en");
 	wifi_power_on_pin(GPIO_SW_CTRL, "sw-ctrl");
 
-	/* Let the rail settle before step 2 starts reading PARF. */
-	delay_for_interval(2000, NSEC_PER_USEC);
+	/* Let the rail settle before step 2 starts reading PARF. The first argument is
+	 * MICROseconds (the same unit trap as the Bluetooth driver's delay(), which takes
+	 * usec while its callers counted milliseconds): the earlier 2000 here was 2 ms,
+	 * not the 2 s its neighbours would have you expect. 20 ms is ten times that and
+	 * still far below the 1 s console flush. */
+	delay_for_interval(20000, NSEC_PER_USEC);
 }
 
 /*
@@ -325,10 +377,12 @@ wifi_step2_pcie(void)
 static void
 wifi_step2b_parf_dump(void)
 {
-	printf("popsicle_wifi: step2b PCIe PARF hex dump 0x00..0x7c "
-	    "(32 x u32, raw -- link-status/device-id semantics NOT decoded)\n");
+	printf("popsicle_wifi: step2b PCIe PARF hex dump 0x00..0x%02x "
+	    "(%u x u32, raw -- link-status/device-id semantics NOT decoded; the window "
+	    "is the measured-safe prefix until step 4 reports the domains up)\n",
+	    wifi_parf_bytes - 4u, wifi_parf_bytes / 4u);
 
-	for (unsigned off = 0; off < PCIE_PARF_DUMP_BYTES; off += 4) {
+	for (unsigned off = 0; off < wifi_parf_bytes; off += 4) {
 		uint32_t value = *(volatile uint32_t *)(pcie_parf + off);
 		printf("popsicle_wifi: parf[0x%02x] = 0x%08x\n", off, value);
 	}
@@ -361,9 +415,11 @@ wifi_step2c_link(void)
 	          : "the PHY sequence has to run before anything can enumerate");
 
 	/* The fourteen words qcom,pcie-sm-debug names, in order, still raw. */
-	printf("popsicle_wifi: step2c pcie_sm debug words 0x%x..0x%x (qcom,pcie-sm-debug)\n",
+	printf("popsicle_wifi: step2c pcie_sm debug words 0x%x..0x%x of the 0x%x..0x%x named by "
+	    "qcom,pcie-sm-debug (bounded until step 4 reports the domains up)\n",
+	    PCIE_SM_DEBUG_FIRST, PCIE_SM_DEBUG_FIRST + PCIE_SM_DEBUG_STEP * (wifi_sm_words - 1u),
 	    PCIE_SM_DEBUG_FIRST, PCIE_SM_DEBUG_FIRST + PCIE_SM_DEBUG_STEP * (PCIE_SM_DEBUG_COUNT - 1));
-	for (unsigned i = 0; i < PCIE_SM_DEBUG_COUNT; i++) {
+	for (unsigned i = 0; i < wifi_sm_words; i++) {
 		unsigned off = PCIE_SM_DEBUG_FIRST + i * PCIE_SM_DEBUG_STEP;
 		printf("popsicle_wifi: pcie_sm[0x%04x] = 0x%08x\n", off,
 		    *(volatile uint32_t *)(pcie_sm + off));
@@ -413,7 +469,16 @@ wifi_gdsc_on(uint32_t off, const char *what)
 		return false;
 	}
 
-	return (cfgv & GDSC_POWER_UP_COMPLETE) != 0 || cfgv == 0;
+	/* 0264: cfg reading 0 is NOT success. An unmapped or unpowered domain reads all
+	 * zero, and accepting that is the same mistake the Bluetooth driver made when
+	 * bt_on() treated one register value as proof the block was clocked. Only bit 16
+	 * proves the domain came out of collapse; anything else is 'unknown'. */
+	if (cfgv == 0u) {
+		printf("popsicle_wifi: gdsc %s cfg reads 0x00000000, treating it as NOT up "
+		    "(unreadable or still collapsed)\n", what);
+		return false;
+	}
+	return (cfgv & GDSC_POWER_UP_COMPLETE) != 0;
 }
 
 /*
@@ -433,7 +498,21 @@ wifi_step4_power(void)
 	printf("popsicle_wifi: step4 pcie_0 %s, pcie_0_phy %s\n",
 	    main_up ? "up" : "down", phy_up ? "up" : "down");
 
-	for (unsigned off = 0; off < PCIE_PARF_DUMP_BYTES; off += 4) {
+	/* Only now may a dump touch the whole block. boot-yz died on parf[0x58] with
+	 * both domains still collapsed; the same range answered all 32 words in the
+	 * G3/G4 boots, which had them up. Widening is a one-way door for this boot:
+	 * there is no path back to the narrow prefix. */
+	if (main_up && phy_up) {
+		wifi_parf_bytes = PCIE_PARF_DUMP_BYTES;
+		wifi_sm_words = PCIE_SM_DEBUG_COUNT;
+		printf("popsicle_wifi: step4 both domains up, PARF dump widened to 0x%02x bytes, "
+		    "sm debug widened to %u words\n", wifi_parf_bytes, wifi_sm_words);
+	} else {
+		printf("popsicle_wifi: step4 dumps stay bounded (PARF 0x%02x bytes, sm %u word) "
+		    "because a domain did not report up\n", wifi_parf_bytes, wifi_sm_words);
+	}
+
+	for (unsigned off = 0; off < wifi_parf_bytes; off += 4) {
 		uint32_t v = *(volatile uint32_t *)(pcie_parf + off);
 
 		if (v != 0) {
@@ -443,7 +522,7 @@ wifi_step4_power(void)
 		}
 	}
 	printf("popsicle_wifi: step4 %u of %u PARF words are now nonzero\n",
-	    changed, (unsigned)(PCIE_PARF_DUMP_BYTES / 4));
+	    changed, (unsigned)(wifi_parf_bytes / 4u));
 
 	/* The same two places step 2c read before power, read again now that the domains
 	 * are out of collapse: the PHY ready bit and the state machine's start word. */
@@ -529,6 +608,119 @@ wifi_step2d_elbi(void)
 	}
 }
 
+static uint32_t
+iatu_rd(uint32_t off)
+{
+	return *(volatile uint32_t *)(pcie_iatu + off);
+}
+
+static void
+iatu_wr(uint32_t off, uint32_t value)
+{
+	*(volatile uint32_t *)(pcie_iatu + off) = value;
+}
+
+/*
+ * Step 5: the iATU outbound window that makes BAR0 answer.
+ *
+ * Everything before this step only ever showed the root complex talking to itself.
+ * With no outbound translation the CPU address of BAR0 (0x40400000, the range the
+ * DTS reserves as cnss_wlan_region) decodes as local DRAM, so a read returns whatever
+ * the boot loader left there, and reading ELBI aborts outright -- measured in 0252.
+ *
+ * Two ordering rules, both deliberate:
+ *   - every store is preceded by a printf, so a boot that dies here still says how far
+ *     it got (the rule step 0 and step 3 already follow);
+ *   - ATU_REGION_CTRL2 carries ATU_ENABLE, so it is written LAST and the window is
+ *     inert until that store lands (pcie-designware.c:573-580).
+ * Only region 0 is programmed. The BAR0 read is the last thing in the step, because
+ * that is the read that aborts when the link is down.
+ */
+static void
+wifi_step5_iatu(void)
+{
+	uint32_t i, ctrl1, ctrl2;
+
+	printf("popsicle_wifi: step5 iATU 0x%llx + 0x%llx, unrolled 8 x 0x200\n",
+	    (unsigned long long)PCIE_IATU_PHYS, (unsigned long long)PCIE_IATU_SIZE);
+
+	/* 1. What is there now. Under a viewport (pre-4.80a) block these eight words
+	 * would all read the same selector window and repeat; under an unrolled block
+	 * they are eight independent registers. */
+	printf("popsicle_wifi: step5 reading region 0 at 0x%03x before any store\n",
+	    ATU_UNROLL(0, 0));
+	for (i = 0; i < 8; i++) {
+		uint32_t off = ATU_UNROLL(0, 0) + i * 4u;
+
+		printf("popsicle_wifi: step5 iatu[0x%03x] = 0x%08x (region 0 word %u)\n",
+		    off, iatu_rd(off), i);
+	}
+	printf("popsicle_wifi: step5 iatu[0x%03x] = 0x%08x (region 1 ctrl1: unroll marker)\n",
+	    ATU_UNROLL(1, 0) + ATU_REGION_CTRL1,
+	    iatu_rd(ATU_UNROLL(1, 0) + ATU_REGION_CTRL1));
+
+	/* 2. Region 0: CPU 0x40400000 -> bus 0x40400000, 2 MiB. */
+	printf("popsicle_wifi: step5 region 0 OB: base 0x%08x limit 0x%08x target 0x%08x\n",
+	    (unsigned)PCIE_BAR0_PHYS,
+	    (unsigned)(PCIE_BAR0_PHYS + PCIE_BAR0_SIZE - 1u),
+	    (unsigned)PCIE_BAR0_PHYS);
+
+	printf("popsicle_wifi: step5 writing LOWER_BASE = 0x%08x\n", (unsigned)PCIE_BAR0_PHYS);
+	iatu_wr(ATU_UNROLL(0, 0) + ATU_LOWER_BASE, (uint32_t)PCIE_BAR0_PHYS);
+	printf("popsicle_wifi: step5 writing UPPER_BASE = 0x%08x\n",
+	    (uint32_t)(PCIE_BAR0_PHYS >> 32));
+	iatu_wr(ATU_UNROLL(0, 0) + ATU_UPPER_BASE, (uint32_t)(PCIE_BAR0_PHYS >> 32));
+	printf("popsicle_wifi: step5 writing LIMIT = 0x%08x\n",
+	    (unsigned)(PCIE_BAR0_PHYS + PCIE_BAR0_SIZE - 1u));
+	iatu_wr(ATU_UNROLL(0, 0) + ATU_LIMIT, (uint32_t)(PCIE_BAR0_PHYS + PCIE_BAR0_SIZE - 1u));
+	printf("popsicle_wifi: step5 writing UPPER_LIMIT = 0x%08x\n",
+	    (uint32_t)((PCIE_BAR0_PHYS + PCIE_BAR0_SIZE - 1u) >> 32));
+	iatu_wr(ATU_UNROLL(0, 0) + ATU_UPPER_LIMIT,
+	    (uint32_t)((PCIE_BAR0_PHYS + PCIE_BAR0_SIZE - 1u) >> 32));
+	printf("popsicle_wifi: step5 writing LOWER_TARGET = 0x%08x\n", (unsigned)PCIE_BAR0_PHYS);
+	iatu_wr(ATU_UNROLL(0, 0) + ATU_LOWER_TARGET, (uint32_t)PCIE_BAR0_PHYS);
+	printf("popsicle_wifi: step5 writing UPPER_TARGET = 0x%08x\n",
+	    (uint32_t)(PCIE_BAR0_PHYS >> 32));
+	iatu_wr(ATU_UNROLL(0, 0) + ATU_UPPER_TARGET, (uint32_t)(PCIE_BAR0_PHYS >> 32));
+
+	ctrl1 = ATU_TD;
+	printf("popsicle_wifi: step5 writing CTRL1 = 0x%08x (MEM, no routing, TD on)\n", ctrl1);
+	iatu_wr(ATU_UNROLL(0, 0) + ATU_REGION_CTRL1, ctrl1);
+	ctrl2 = ATU_ENABLE;
+	printf("popsicle_wifi: step5 writing CTRL2 = 0x%08x (ATU_ENABLE: window goes live)\n", ctrl2);
+	iatu_wr(ATU_UNROLL(0, 0) + ATU_REGION_CTRL2, ctrl2);
+
+	/* 3. Read the region back: a window that did not latch shows as ctrl2 without
+	 * bit 31. */
+	printf("popsicle_wifi: step5 readback r0: ctrl1 0x%08x ctrl2 0x%08x base 0x%08x "
+	    "limit 0x%08x target 0x%08x\n",
+	    iatu_rd(ATU_UNROLL(0, 0) + ATU_REGION_CTRL1),
+	    iatu_rd(ATU_UNROLL(0, 0) + ATU_REGION_CTRL2),
+	    iatu_rd(ATU_UNROLL(0, 0) + ATU_LOWER_BASE),
+	    iatu_rd(ATU_UNROLL(0, 0) + ATU_LIMIT),
+	    iatu_rd(ATU_UNROLL(0, 0) + ATU_LOWER_TARGET));
+
+	/* 4. The first read through the window, and the last thing this step does. It
+	 * is behind wifi_bar0read=1 because this is the one access that aborts when the
+	 * link is still down: with an outbound window enabled and no trained link the
+	 * completion never returns, so the load raises a synchronous external abort.
+	 * Programming the window is safe; reading through it is the separate decision. */
+	if (!wifi_bar0read) {
+		printf("popsicle_wifi: step5 window programmed; BAR0 read skipped (set wifi_bar0read=1 to read it)\n");
+	} else if (pcie_bar0 != 0) {
+		uint32_t w0 = *(volatile uint32_t *)(pcie_bar0 + 0x000);
+		uint32_t w1 = *(volatile uint32_t *)(pcie_bar0 + 0x004);
+
+		printf("popsicle_wifi: step5 BAR0[0x000] = 0x%08x, [0x004] = 0x%08x\n", w0, w1);
+		printf("popsicle_wifi: step5 BAR0 %s\n",
+		    (w0 == 0xffffffffu && w1 == 0xffffffffu)
+		        ? "reads all ones: no endpoint claimed the cycle (link still down)"
+		        : "answers: the outbound window is live");
+	} else {
+		printf("popsicle_wifi: step5 BAR0 not mapped, window written but not read\n");
+	}
+}
+
 /* ---- the thread ---------------------------------------------------------------------------------
  * popsicle_syna.c L1446: same polled-thread shape; the survey runs once and exits. */
 static void
@@ -536,13 +728,46 @@ wifi_thread(__unused void *parameter, __unused wait_result_t result)
 {
 	printf("popsicle_wifi: FastConnect 7900 survey, boot-arg wifi_probe=1%s\n",
 	    wifi_poweron ? " (wifi_poweron=1: step 0 will WRITE gpio16/gpio18)" : "");
+	/* 0263: with wifi_iatu=1 the very first boot produced an EMPTY log ring -- the
+	 * thread reaches 0x410000000 about 200 ms in, which is before the 1 s console
+	 * flush, so an abort there costs the whole record instead of one line. Waiting
+	 * first turns that class of failure into something the ring can report. */
+	if (wifi_delayms) {
+		printf("popsicle_wifi: wifi_delayms=%u ms, waiting before the first MMIO access "
+		    "so the log ring is flushed first\n", wifi_delayms);
+		delay_for_interval(wifi_delayms * 1000u, NSEC_PER_USEC);
+		printf("popsicle_wifi: wifi_delayms done, starting the survey\n");
+	}
 
+	printf("popsicle_wifi: mapping TLMM 0x%lx + 0x%lx\n", (unsigned long)TLMM_PHYS,
+	    (unsigned long)TLMM_SIZE);
 	tlmm = ml_io_map_unmappable(TLMM_PHYS, TLMM_SIZE, VM_WIMG_IO);
+	printf("popsicle_wifi: TLMM -> %p\n", (void *)tlmm);
 	pcie_parf = ml_io_map_unmappable(PCIE_PARF_PHYS, PCIE_PARF_SIZE, VM_WIMG_IO);
 	pcie_phy = ml_io_map_unmappable(PCIE_PHY_PHYS, PCIE_PHY_SIZE, VM_WIMG_IO);
 	pcie_elbi = ml_io_map_unmappable(PCIE_ELBI_PHYS, PCIE_ELBI_SIZE, VM_WIMG_IO);
 	pcie_sm = ml_io_map_unmappable(PCIE_SM_PHYS, PCIE_SM_SIZE, VM_WIMG_IO);
 	gcc = ml_io_map_unmappable(GCC_PHYS, GCC_SIZE, VM_WIMG_IO);
+	/* 0263: 0x410000000 is the one mapping above 4 GiB this driver makes, and it is
+	 * part of the controller's own register aperture ("dm_core" is the 256 MiB
+	 * window it lives in). Announced separately so an abort at map time names it. */
+	if (wifi_iatu) {
+		printf("popsicle_wifi: mapping iATU 0x%llx + 0x%llx (above 4 GiB)\n",
+		    (unsigned long long)PCIE_IATU_PHYS, (unsigned long long)PCIE_IATU_SIZE);
+	}
+	pcie_iatu = wifi_iatu ? ml_io_map_unmappable(PCIE_IATU_PHYS, PCIE_IATU_SIZE,
+	    VM_WIMG_IO) : 0;
+	printf("popsicle_wifi: iATU -> %p\n", (void *)pcie_iatu);
+	if (wifi_iatu) {
+		printf("popsicle_wifi: mapping BAR0 0x%08x + 0x1000\n", (unsigned)PCIE_BAR0_PHYS);
+	}
+	pcie_bar0 = wifi_iatu ? ml_io_map_unmappable(PCIE_BAR0_PHYS, 0x1000,
+	    VM_WIMG_IO) : 0;
+	printf("popsicle_wifi: BAR0 -> %p\n", (void *)pcie_bar0);
+	if (wifi_iatu && (pcie_iatu == 0 || pcie_bar0 == 0)) {
+		printf("popsicle_wifi: iATU 0x%llx -> %p, BAR0 -> %p: step 5 needs both\n",
+		    (unsigned long long)PCIE_IATU_PHYS, (void *)pcie_iatu, (void *)pcie_bar0);
+	}
 	if (tlmm == 0 || pcie_parf == 0 || pcie_phy == 0 || pcie_elbi == 0 || pcie_sm == 0 ||
 	    gcc == 0) {
 		printf("popsicle_wifi: cannot map TLMM/PCIe: tlmm %p parf %p phy %p elbi %p sm %p gcc %p\n",
@@ -557,6 +782,13 @@ wifi_thread(__unused void *parameter, __unused wait_result_t result)
 	if (wifi_poweron) {
 		wifi_step0_power_on();
 	}
+	/* 0265: the domains come up BEFORE any block is read. Every dump below reads a
+	 * root-complex block that only answers once pcie_0 and pcie_0_phy are out of
+	 * collapse; doing it the other way round is what killed boot-yz (parf[0x58]) and
+	 * boot-za (pcie_sm[0x1048]). step 3 stays read-only and is harmless either way. */
+	if (wifi_gdsc) {
+		wifi_step4_power();
+	}
 	wifi_step1_pins();
 	wifi_step2_pcie();
 	wifi_step2b_parf_dump();
@@ -564,8 +796,8 @@ wifi_thread(__unused void *parameter, __unused wait_result_t result)
 	if (wifi_gcc) {
 		wifi_step3_gcc_probe();
 	}
-	if (wifi_gdsc) {
-		wifi_step4_power();
+	if (wifi_iatu && pcie_iatu != 0) {
+		wifi_step5_iatu();
 	}
 	/* PANDORA: the ELBI window (0x4_00000f20, DTS reg[3]) is not readable until the
 	 * PCIe upstream port is out of reset. A plain load there raises a synchronous
@@ -611,6 +843,21 @@ popsicle_wifi_init(void)
 	{
 		uint32_t d = 0;
 		wifi_gdsc = PE_parse_boot_argn("wifi_gdsc", &d, sizeof(d)) && d;
+	}
+	{
+		uint32_t a = 0;
+		wifi_iatu = PE_parse_boot_argn("wifi_iatu", &a, sizeof(a)) && a;
+	}
+	{
+		uint32_t r = 0;
+		wifi_bar0read = PE_parse_boot_argn("wifi_bar0read", &r, sizeof(r)) && r;
+	}
+	{
+		uint32_t ms = 0;
+		wifi_delayms = PE_parse_boot_argn("wifi_delayms", &ms, sizeof(ms)) ? ms : 0u;
+		if (wifi_delayms > 20000u) {
+			wifi_delayms = 20000u;
+		}
 	}
 
 	if (kernel_thread_start(wifi_thread, NULL, &thread) == KERN_SUCCESS) {
