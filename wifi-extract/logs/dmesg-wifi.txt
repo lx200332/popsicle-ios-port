@@ -1,0 +1,435 @@
+139:[    7.054650] coresight-qmi soc:modem2-qmi: Connection established between QMI handle and 11 service
+140:[    7.055741] coresight-qmi soc:modem0-qmi: Connection established between QMI handle and 2 service
+204:[    7.130370] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9960cbc0) with descriptor: '(not cached)'
+339:[    7.399138] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99603d70) with descriptor: '(not cached)'
+478:[    7.798515] Sending QMI_IPA_INIT_MODEM_DRIVER_REQ_V01
+497:[    7.823112] QMI_IPA_INIT_MODEM_DRIVER_REQ_V01 response received
+498:[    7.823117] ipa-wan ipa3_q6_clnt_svc_arrive:2097 send ipa3_qmi_init_modem_send_sync_msg to modem rc:0
+533:[    8.108836] servicemanager: Service 'vendor.xiaomi.hardware.fx.tunnel.IMiFxTunnel/default' originally registered from PID 3030 but it is being registered again from PID 3030. Bad state? Late death notification? Multiple instances installed?
+534:[    8.108844] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9960a6a0) with descriptor: '(not cached)'
+663:[    8.845654] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99608a70) with descriptor: '(not cached)'
+678:[    8.858580] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99612050) with descriptor: '(not cached)'
+736:[    9.216059] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f996163b0) with descriptor: '(not cached)'
+786:[    9.285905] servicemanager: Service 'vendor.xiaomi.hardware.aon.IAlwaysOn/miaonservicehal' originally registered from PID 2251 but it is being registered again from PID 2251. Bad state? Late death notification? Multiple instances installed?
+787:[    9.285910] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99613230) with descriptor: '(not cached)'
+824:[    9.376549] cnss: QMI DMS service connected, state: 0x2f0600f
+953:[   10.282274] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99609200) with descriptor: '(not cached)'
+954:[   10.282703] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99617220) with descriptor: '(not cached)'
+955:[   10.283153] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9960b3b0) with descriptor: '(not cached)'
+956:[   10.283884] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9960aa10) with descriptor: '(not cached)'
+1079:[   11.562110] KernelSU: Found manager base.apk at path: /data/app/~~7b0d8Esv1MFz5cQaqadyiw==/me.weishu.kernelsu-0fGfKfAR8BjICQil41Z1BA==/base.apk, is_manager: 1
+1084:[   11.575984] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9960cbc0) with descriptor: '(not cached)'
+1085:[   11.576014] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99612b50) with descriptor: '(not cached)'
+1091:[   11.576847] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f996155f0) with descriptor: '(not cached)'
+1099:[   11.596034] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9960cbc0) with descriptor: '(not cached)'
+1100:[   11.596099] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f996155f0) with descriptor: '(not cached)'
+1101:[   11.596133] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9960b5c0) with descriptor: '(not cached)'
+1128:[   11.637661] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99615540) with descriptor: '(not cached)'
+1130:[   11.713479] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99618980) with descriptor: '(not cached)'
+1135:[   11.729103] type=1400 audit(1794478742.126:513): avc:  denied  { open } for  comm="BootAnimation" path="/dev/__properties__/u:object_r:vendor_audio_prop:s0" dev="tmpfs" ino=500 scontext=u:r:bootanim:s0 tcontext=u:object_r:vendor_audio_prop:s0 tclass=file permissive=0
+1137:[   11.730452] type=1400 audit(1794478742.126:514): avc:  denied  { open } for  comm="BootAnimation" path="/dev/__properties__/u:object_r:vendor_audio_prop:s0" dev="tmpfs" ino=500 scontext=u:r:bootanim:s0 tcontext=u:object_r:vendor_audio_prop:s0 tclass=file permissive=0
+1138:[   11.730495] type=1400 audit(1794478742.126:515): avc:  denied  { open } for  comm="BootAnimation" path="/dev/__properties__/u:object_r:vendor_audio_prop:s0" dev="tmpfs" ino=500 scontext=u:r:bootanim:s0 tcontext=u:object_r:vendor_audio_prop:s0 tclass=file permissive=0
+1139:[   11.730765] type=1400 audit(1794478742.126:516): avc:  denied  { open } for  comm="BackBootAnimati" path="/dev/__properties__/u:object_r:vendor_audio_prop:s0" dev="tmpfs" ino=500 scontext=u:r:bootanim:s0 tcontext=u:object_r:vendor_audio_prop:s0 tclass=file permissive=0
+1140:[   11.731195] type=1400 audit(1794478742.126:517): avc:  denied  { open } for  comm="BootAnimation" path="/proc/asound/cards" dev="proc" ino=4026531996 scontext=u:r:bootanim:s0 tcontext=u:object_r:vendor_proc_audiod:s0 tclass=file permissive=0
+1144:[   11.737975] type=1400 audit(1794478742.134:518): avc:  denied  { open } for  comm="BackBootAnimati" path="/proc/asound/cards" dev="proc" ino=4026531996 scontext=u:r:bootanim:s0 tcontext=u:object_r:vendor_proc_audiod:s0 tclass=file permissive=0
+1254:[   12.142708] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99609ba0) with descriptor: '(not cached)'
+1255:[   12.143058] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99611130) with descriptor: '(not cached)'
+1256:[   12.143408] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9961a870) with descriptor: '(not cached)'
+1257:[   12.143917] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9960bca0) with descriptor: '(not cached)'
+1288:[   12.359052] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+1289:[   12.361222] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+1290:[   12.362627] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+1293:[   12.392443] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+1294:[   12.392985] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.hostapd.IHostapd/default in device VINTF manifest.
+1295:[   12.393280] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+1296:[   12.393469] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+1297:[   12.393800] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.hostapd.IHostapd/default in device VINTF manifest.
+1298:[   12.394004] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+1306:[   12.399198] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9960de50) with descriptor: '(not cached)'
+1308:[   12.399730] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99616250) with descriptor: '(not cached)'
+1318:[   12.429189] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+1363:[   12.562854] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99611b80) with descriptor: '(not cached)'
+1364:[   12.563302] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9961a450) with descriptor: '(not cached)'
+1407:[   12.891033] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9961ba50) with descriptor: '(not cached)'
+1438:[   13.325350] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+1439:[   13.349869] type=1400 audit(1794478743.746:538): avc:  denied  { read } for  comm="WifiHandlerThre" name="u:object_r:persist_vendor_debug_wifi_prop:s0" dev="tmpfs" ino=377 scontext=u:r:system_server:s0 tcontext=u:object_r:persist_vendor_debug_wifi_prop:s0 tclass=file permissive=0
+1448:[   13.437287] type=1400 audit(1794478743.834:539): avc:  denied  { read } for  comm="WifiHandlerThre" name="u:object_r:persist_vendor_debug_wifi_prop:s0" dev="tmpfs" ino=377 scontext=u:r:system_server:s0 tcontext=u:object_r:persist_vendor_debug_wifi_prop:s0 tclass=file permissive=0
+1449:[   13.440604] type=1400 audit(1794478743.834:540): avc:  denied  { read } for  comm="WifiHandlerThre" name="u:object_r:persist_vendor_debug_wifi_prop:s0" dev="tmpfs" ino=377 scontext=u:r:system_server:s0 tcontext=u:object_r:persist_vendor_debug_wifi_prop:s0 tclass=file permissive=0
+1450:[   13.442246] type=1400 audit(1794478743.838:541): avc:  denied  { read } for  comm="WifiHandlerThre" name="u:object_r:persist_vendor_debug_wifi_prop:s0" dev="tmpfs" ino=377 scontext=u:r:system_server:s0 tcontext=u:object_r:persist_vendor_debug_wifi_prop:s0 tclass=file permissive=0
+1455:[   13.452439] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+1512:[   14.192972] type=1400 audit(1794478744.590:546): avc:  denied  { read } for  comm="binder:2050_2" name="u:object_r:wifi_hal_prop:s0" dev="tmpfs" ino=748 scontext=u:r:netd:s0 tcontext=u:object_r:wifi_hal_prop:s0 tclass=file permissive=0
+1521:[   14.258279] cnss: Calibration took 8448 ms
+1526:[   14.460250] msm_pcie_disable: PCIe: Assert the reset of endpoint of RC0.
+1527:[   14.460257] msm_pcie_config_perst: PCIe: RC0: assert PERST
+1533:[   14.560201] cnss: CAL DB file not required as per BDF
+1534:[   14.560248] cnss: QMI WLFW service disconnected, state: 0x32fa6000
+1535:[   14.560372] cnss: Device id: 0x110e
+1536:[   14.561166] cnss: Device id: 0x110e
+1537:[   14.562223] msm_pcie_enable: PCIe: Assert the reset of endpoint of RC0.
+1538:[   14.562226] msm_pcie_config_perst: PCIe: RC0: assert PERST
+1539:[   14.566652] msm_pcie_enable_link: PCIe: RC0: PCIE20_PARF_INT_ALL_MASK: 0x7f80d202
+1540:[   14.566685] msm_pcie_enable_link: PCIe: RC:0 PARF_INT_ALL_2_TYPE:0x410
+1541:[   14.568136] pcie_phy_init: PCIe RC0 PHY is ready!
+1543:[   14.578172] msm_pcie_enable_link: PCIe: Release the reset of endpoint of RC0.
+1544:[   14.578178] msm_pcie_config_perst: PCIe: RC0: de-assert PERST
+1545:[   14.594593] msm_pcie_link_train: PCIe RC0 link initialized
+1546:[   14.596029] mhi mhi_110e_00.01.00: Direct firmware load for peach/amss20.bin failed with error -2
+1547:[   14.596034] mhi mhi_110e_00.01.00: Falling back to sysfs fallback for: peach/amss20.bin
+1548:[   14.598036] ueventd: firmware: loading 'peach/amss20.bin' for '/devices/platform/soc/1c00000.pcie/pci0000:00/0000:00:00.0/0000:01:00.0/mhi_110e_00.01.00/firmware/peach!amss20.bin'
+1549:[   14.598300] ueventd: found /vendor/firmware_mnt/image/peach/amss20.bin for /devices/platform/soc/1c00000.pcie/pci0000:00/0000:00:00.0/0000:01:00.0/mhi_110e_00.01.00/firmware/peach!amss20.bin
+1550:[   14.599832] ueventd: loading /devices/platform/soc/1c00000.pcie/pci0000:00/0000:00:00.0/0000:01:00.0/mhi_110e_00.01.00/firmware/peach!amss20.bin took 1ms
+1587:[   15.154414] type=1400 audit(1794478745.550:558): avc:  denied  { read } for  comm="qtidataservices" name="u:object_r:default_prop:s0" dev="tmpfs" ino=219 scontext=u:r:vendor_qtidataservices_app:s0:c123,c256,c512,c768 tcontext=u:object_r:default_prop:s0 tclass=file permissive=0 app=vendor.qti.iwlan
+1589:[   15.156783] type=1400 audit(1794478745.550:559): avc:  denied  { read } for  comm="qtidataservices" name="u:object_r:default_prop:s0" dev="tmpfs" ino=219 scontext=u:r:vendor_qtidataservices_app:s0:c123,c256,c512,c768 tcontext=u:object_r:default_prop:s0 tclass=file permissive=0 app=vendor.qti.iwlan
+1590:[   15.156858] type=1400 audit(1794478745.550:560): avc:  denied  { read } for  comm="qtidataservices" name="u:object_r:default_prop:s0" dev="tmpfs" ino=219 scontext=u:r:vendor_qtidataservices_app:s0:c123,c256,c512,c768 tcontext=u:object_r:default_prop:s0 tclass=file permissive=0 app=vendor.qti.iwlan
+1591:[   15.156887] type=1400 audit(1794478745.550:561): avc:  denied  { read } for  comm="qtidataservices" name="u:object_r:default_prop:s0" dev="tmpfs" ino=219 scontext=u:r:vendor_qtidataservices_app:s0:c123,c256,c512,c768 tcontext=u:object_r:default_prop:s0 tclass=file permissive=0 app=vendor.qti.iwlan
+1592:[   15.161479] type=1400 audit(1794478745.558:562): avc:  denied  { read } for  comm="re-initialized>" name="u:object_r:default_prop:s0" dev="tmpfs" ino=219 scontext=u:r:vendor_qtidataservices_app:s0:c123,c256,c512,c768 tcontext=u:object_r:default_prop:s0 tclass=file permissive=0 app=vendor.qti.iwlan
+1593:[   15.161524] type=1400 audit(1794478745.558:563): avc:  denied  { read } for  comm="re-initialized>" name="u:object_r:default_prop:s0" dev="tmpfs" ino=219 scontext=u:r:vendor_qtidataservices_app:s0:c123,c256,c512,c768 tcontext=u:object_r:default_prop:s0 tclass=file permissive=0 app=vendor.qti.iwlan
+1594:[   15.161546] type=1400 audit(1794478745.558:564): avc:  denied  { read } for  comm="re-initialized>" name="u:object_r:default_prop:s0" dev="tmpfs" ino=219 scontext=u:r:vendor_qtidataservices_app:s0:c123,c256,c512,c768 tcontext=u:object_r:default_prop:s0 tclass=file permissive=0 app=vendor.qti.iwlan
+1595:[   15.161574] type=1400 audit(1794478745.558:565): avc:  denied  { read } for  comm="re-initialized>" name="u:object_r:default_prop:s0" dev="tmpfs" ino=219 scontext=u:r:vendor_qtidataservices_app:s0:c123,c256,c512,c768 tcontext=u:object_r:default_prop:s0 tclass=file permissive=0 app=vendor.qti.iwlan
+1602:[   15.203021] cnss: QMI WLFW service connected, state: 0x46f26011
+1606:[   15.217521] cnss: tgt cap response direct cx data pin mode status: 0
+1607:[   15.217533] cnss: serial id  0x0 0x0
+1609:[   15.219690] ueventd: firmware: loading 'peach/regdb_xiaomi.bin' for '/devices/platform/soc/b0000000.qcom,cnss-peach/firmware/peach!regdb_xiaomi.bin'
+1610:[   15.219934] ueventd: found /vendor/firmware_mnt/image/peach/regdb_xiaomi.bin for /devices/platform/soc/b0000000.qcom,cnss-peach/firmware/peach!regdb_xiaomi.bin
+1611:[   15.220284] ueventd: loading /devices/platform/soc/b0000000.qcom,cnss-peach/firmware/peach!regdb_xiaomi.bin took 0ms
+1612:[   15.220483] cnss: Downloading REGDB: peach/regdb_xiaomi.bin, size: 24278
+1617:[   15.233079] type=1400 audit(1794478745.630:569): avc:  denied  { search } for  comm="qtidataservices" name="mcd" dev="dm-62" ino=507 scontext=u:r:vendor_qtidataservices_app:s0:c123,c256,c512,c768 tcontext=u:object_r:mcd_data_file:s0 tclass=dir permissive=0 app=vendor.qti.iwlan
+1618:[   15.233436] type=1400 audit(1794478745.630:570): avc:  denied  { read } for  comm="qtidataservices" name="u:object_r:default_prop:s0" dev="tmpfs" ino=219 scontext=u:r:vendor_qtidataservices_app:s0:c123,c256,c512,c768 tcontext=u:object_r:default_prop:s0 tclass=file permissive=0 app=vendor.qti.iwlan
+1619:[   15.235503] type=1400 audit(1794478745.630:571): avc:  denied  { read } for  comm="qtidataservices" name="u:object_r:default_prop:s0" dev="tmpfs" ino=219 scontext=u:r:vendor_qtidataservices_app:s0:c123,c256,c512,c768 tcontext=u:object_r:default_prop:s0 tclass=file permissive=0 app=vendor.qti.iwlan
+1621:[   15.241282] ueventd: firmware: loading 'peach/bd_p2.elf' for '/devices/platform/soc/b0000000.qcom,cnss-peach/firmware/peach!bd_p2.elf'
+1622:[   15.241495] ueventd: found /vendor/firmware_mnt/image/peach/bd_p2.elf for /devices/platform/soc/b0000000.qcom,cnss-peach/firmware/peach!bd_p2.elf
+1623:[   15.241623] ueventd: loading /devices/platform/soc/b0000000.qcom,cnss-peach/firmware/peach!bd_p2.elf took 0ms
+1625:[   15.242516] cnss: Downloading BDF: peach/bd_p2.elf, size: 125288
+1629:[   15.291363] cnss: Host BDF config: HW_XPA: 1 CalDB: 0 Radio OFF: 0
+1632:[   15.296506] ueventd: firmware: loading 'peach/qdss_trace_config_perf_v2.cfg' for '/devices/platform/soc/b0000000.qcom,cnss-peach/firmware/peach!qdss_trace_config_perf_v2.cfg'
+1633:[   15.296935] ueventd: firmware: could not find firmware for peach/qdss_trace_config_perf_v2.cfg
+1634:[   15.296939] ueventd: firmware: attempted /apex/com.xiaomi.wifi/etc/peach/qdss_trace_config_perf_v2.cfg, open failed: No such file or directory
+1635:[   15.296942] ueventd: firmware: attempted /etc/firmware/peach/qdss_trace_config_perf_v2.cfg, open failed: No such file or directory
+1636:[   15.296944] ueventd: firmware: attempted /odm/firmware/peach/qdss_trace_config_perf_v2.cfg, open failed: No such file or directory
+1637:[   15.296945] ueventd: firmware: attempted /vendor/firmware/peach/qdss_trace_config_perf_v2.cfg, open failed: No such file or directory
+1638:[   15.296947] ueventd: firmware: attempted /firmware/image/peach/qdss_trace_config_perf_v2.cfg, open failed: No such file or directory
+1639:[   15.296949] ueventd: firmware: attempted /apex/com.xiaomi.wifi/etc/firmware/peach/qdss_trace_config_perf_v2.cfg, open failed: No such file or directory
+1640:[   15.296951] ueventd: firmware: attempted /data/vendor/bdf/peach/qdss_trace_config_perf_v2.cfg, open failed: No such file or directory
+1641:[   15.296953] ueventd: firmware: attempted /vendor/firmware_mnt/image/peach/qdss_trace_config_perf_v2.cfg, open failed: No such file or directory
+1642:[   15.296955] ueventd: firmware: attempted /vendor/modem_firmware/image/peach/qdss_trace_config_perf_v2.cfg, open failed: No such file or directory
+1643:[   15.296957] ueventd: firmware: attempted /vendor/soccp_firmware/image/peach/qdss_trace_config_perf_v2.cfg, open failed: No such file or directory
+1644:[   15.296959] ueventd: firmware: attempted /vendor/dcp_firmware/image/peach/qdss_trace_config_perf_v2.cfg, open failed: No such file or directory
+1645:[   15.299318] ueventd: firmware: attempted /vendor/vm-system/peach/qdss_trace_config_perf_v2.cfg, open failed: No such file or directory
+1646:[   15.302392] ueventd: firmware: loading 'peach/qdss_trace_config_v2.cfg' for '/devices/platform/soc/b0000000.qcom,cnss-peach/firmware/peach!qdss_trace_config_v2.cfg'
+1647:[   15.302647] ueventd: found /vendor/firmware_mnt/image/peach/qdss_trace_config_v2.cfg for /devices/platform/soc/b0000000.qcom,cnss-peach/firmware/peach!qdss_trace_config_v2.cfg
+1648:[   15.302967] ueventd: loading /devices/platform/soc/b0000000.qcom,cnss-peach/firmware/peach!qdss_trace_config_v2.cfg took 0ms
+1649:[   15.317106] cnss: Received DMS MAC: [a4:ff:9f:96:67:15]
+1650:[   15.323589] ueventd: firmware: loading 'wlan/qca_cld/peach_v2/WCNSS_qcom_cfg.ini' for '/devices/virtual/firmware/wlan!qca_cld!peach_v2!WCNSS_qcom_cfg.ini'
+1654:[   15.327067] ueventd: found /vendor/firmware/wlan/qca_cld/peach_v2/WCNSS_qcom_cfg.ini for /devices/virtual/firmware/wlan!qca_cld!peach_v2!WCNSS_qcom_cfg.ini
+1656:[   15.333977] ueventd: loading /devices/virtual/firmware/wlan!qca_cld!peach_v2!WCNSS_qcom_cfg.ini took 10ms
+1672:[   15.443569] wlan_pld:pld_is_ipa_offload_disabled:2897:: Not supported on type 0
+1673:[   15.444052] cnss: Unable to get ipa iommu group phandle
+1674:[   15.444099] [kworke][0x19ad3832][10:19:05.846453] peach_v2: [117:E:QDF] __cds_get_context: Module ID 53 context is Null (via wlan_mlme_set_epcs_capability)
+1675:[   15.444149] [kworke][0x19ad3cda][10:19:05.846515] peach_v2: [117:E:POLICY_MGR] policy_mgr_init_cfg: max_conc_cxns 4 non-nan
+1676:[   15.444565] [kworke][0x19ad5c18][10:19:05.846931] peach_v2: [117:E:QDF] __cds_get_context: Module ID 66 context is Null (via hdd_update_ol_config)
+1677:[   15.444920] [kworke][0x19ad76b2][10:19:05.847286] peach_v2: [117:E:QDF] __cds_get_context: Module ID 66 context is Null (via cds_open)
+1678:[   15.447099] [kworke][0x19ae1a19][10:19:05.849465] peach_v2: [117:I:WMA] wma_open: WMA --> wmi_unified_attach - success
+1679:[   15.453137] [kworke][0x19afdeea][10:19:05.855502] peach_v2: [117:E:QDF] htc_wait_target: Target Ready! TX resource : 1 size:2176, MaxMsgsPerHTCBundle = 1
+1680:[   15.453148] [kworke][0x19afdfc9][10:19:05.855514] peach_v2: [117:E:QDF] htc_setup_target_buffer_assignments: SVS Index : 1 TX : 0x100 : alloc:1
+1681:[   15.454026] cnss: CNSS and direct link share IOMMU group
+1682:[   15.458985] [kworke][0x19b1958b][10:19:05.861350] peach_v2: [117:E:QDF] dp_tx_mon_soc_attach_2_0: dp_tx_mon_soc_attach_2_0:2746 tx mon buf entries: 4096
+1683:[   15.459023] [kworke][0x19b19868][10:19:05.861389] peach_v2: [117:E:QDF] dp_tx_mon_buf_desc_pool_alloc: dp_tx_mon_buf_desc_pool_alloc:513 tx mon buf desc pool entries: 4096
+1686:[   15.478551] [kworke][0x19b7510a][10:19:05.880917] peach_v2: [117:I:scan] scm_channel_list_db_init: min_freq 5935 max_freq 7115
+1687:[   15.484818] [kworke][0x19b9270a][10:19:05.887184] peach_v2: [117:I:IPA] wlan_ipa_logging_sock_init: Init IPA logging infra
+1688:[   15.485089] [ipa_lo][0x19b93b3e][10:19:05.887453] peach_v2: [8318:I:IPA] wlan_ipa_logging_thread: ipa logging thread in running state
+1695:[   15.584486] [kworke][0x19d65a1b][10:19:05.986851] peach_v2: [117:E:DP] dp_rx_page_pool_alloc: RX buffer recycle disabled from INI
+1696:[   15.608488] [kworke][0x19dd624b][10:19:06.010854] peach_v2: [77:I:WMA] wma_rx_service_ready_event: Firmware build version : 2003ffff
+1697:[   15.608500] [kworke][0x19dd632e][10:19:06.010866] peach_v2: [77:I:WMA] wma_rx_service_ready_event: Board version: 8 0 0 16 1
+1698:[   15.609831] [kworke][0x19ddc6fa][10:19:06.012196] peach_v2: [77:E:WMA] wma_update_supported_bands: wrong supported band
+1699:[   15.609842] [kworke][0x19ddc7d4][10:19:06.012208] peach_v2: [77:E:WMA] wma_update_supported_bands: wrong supported band
+1700:[   15.609868] [kworke][0x19ddc9ce][10:19:06.012234] peach_v2: [77:I:POLICY_MGR] policy_mgr_modify_sbs_freq: Invalid SBS range with all 5Ghz shared
+1701:[   15.609933] [kworke][0x19ddceb0][10:19:06.012299] peach_v2: [77:I:WMI] extract_hw_bdf_status: FW and BDF ver check skipped
+1702:[   15.610984] [kworke][0x19de1d87][10:19:06.013350] peach_v2: [77:I:TIF] init_deinit_populate_aux_dev_cap_ext2: num_aux_dev_caps = 2
+1703:[   15.610990] [kworke][0x19de1df3][10:19:06.013356] peach_v2: [77:I:WMI] extract_aux_dev_cap_service_ready_ext2_tlv: idx 0 aux_index 0, hw_mode_id 0, supported_modes_bitmap 0x2, listen_pdev_id_map 0x1, emlsr_pdev_id_map 0x0
+1704:[   15.610993] [kworke][0x19de1e38][10:19:06.013359] peach_v2: [77:I:WMI] extract_aux_dev_cap_service_ready_ext2_tlv: idx 1 aux_index 0, hw_mode_id 5, supported_modes_bitmap 0x0, listen_pdev_id_map 0x0, emlsr_pdev_id_map 0x0
+1705:[   15.611017] [kworke][0x19de2004][10:19:06.013383] peach_v2: [77:I:POLICY_MGR] policy_mgr_modify_sbs_freq: Invalid SBS range with all 5Ghz shared
+1723:[   15.784151] [kworke][0x1a10d8ff][10:19:06.186516] peach_v2: [77:I:WMI] ready_extract_init_status_tlv: ready_extract_init_status_tlv:0
+1724:[   15.784414] [kworke][0x1a10e740][10:19:06.186707] peach_v2: [77:E:QDF] __cds_get_context: Module ID 65 context is Null (via wma_set_tx_partition_base)
+1725:[   15.784425] [kworke][0x1a10ed8c][10:19:06.186790] peach_v2: [77:F:DP] cdp_ipa_set_uc_tx_partition_base invalid instance
+1726:[   15.788716] [kworke][0x1a122f5b][10:19:06.191081] peach_v2: [77:E:REGULATORY] reg_set_keep_6ghz_sta_cli_connection: pdev reg component is NULL
+1727:[   15.788727] [kworke][0x1a123033][10:19:06.191093] peach_v2: [77:E:REGULATORY] reg_does_country_supp_c2c: pdev reg component is NULL
+1728:[   15.788787] [kworke][0x1a1234b7][10:19:06.191153] peach_v2: [77:E:OBJMGR] wlan_objmgr_pdev_try_get_ref: [Ref id: 22] pdev [0] is not in Created(st:0)
+1729:[   15.788792] [kworke][0x1a123523][10:19:06.191158] peach_v2: [77:E:REGULATORY] reg_send_scheduler_msg_nb: error taking pdev ref cnt
+1730:[   15.788803] [kworke][0x1a1235e9][10:19:06.191169] peach_v2: [77:I:dfs] WLAN_DEBUG_DFS_ALWAYS : wlan_dfs_pdev_obj_create_notification: dfs_bangradar_320_support 0
+1731:[   15.791363] [kworke][0x1a12f5df][10:19:06.193728] peach_v2: [77:I:dfs] WLAN_DEBUG_DFS_ALWAYS : dfs_set_nol_subchannel_marking: NOL subchannel marking is disabled 
+1732:[   15.791385] [kworke][0x1a12f6b6][10:19:06.193739] peach_v2: [77:I:SPECTRAL] null_get_capability: SPECTRAL : get_capability not registered
+1734:[   15.791389] [kworke][0x1a12f7de][10:19:06.193755] peach_v2: [77:I:SPECTRAL] target_if_pdev_spectral_init: HAL_CAP_PHYDIAG : Capable
+1735:[   15.791392] [kworke][0x1a12f818][10:19:06.193758] peach_v2: [77:I:SPECTRAL] null_get_capability: SPECTRAL : get_capability not registered
+1737:[   15.791395] [kworke][0x1a12f851][10:19:06.193761] peach_v2: [77:I:SPECTRAL] target_if_pdev_spectral_init: HAL_CAP_RADAR   : Capable
+1738:[   15.791398] [kworke][0x1a12f886][10:19:06.193764] peach_v2: [77:I:SPECTRAL] null_get_capability: SPECTRAL : get_capability not registered
+1740:[   15.791400] [kworke][0x1a12f8bf][10:19:06.193766] peach_v2: [77:I:SPECTRAL] target_if_pdev_spectral_init: HAL_CAP_SPECTRAL_SCAN : Capable
+1741:[   15.791404] [kworke][0x1a12f900][10:19:06.193770] peach_v2: [77:I:SPECTRAL] null_get_tsf64: SPECTRAL : get_tsf64 not registered
+1743:[   15.791417] [kworke][0x1a12fa03][10:19:06.193783] peach_v2: [77:I:GREEN_AP] wlan_green_ap_pdev_obj_create_notification: Green AP creation successful, green ap ctx: 0000000000000000, pdev: 0000000000000000
+1744:[   15.791437] [kworke][0x1a12fb1d][10:19:06.193798] peach_v2: [77:I:CFR] wlan_cfr_is_ini_disabled: cfr is disabled for pdev[0]
+1745:[   15.791822] [kworke][0x1a131860][10:19:06.194188] peach_v2: [77:E:CFR] wlan_cfr_pdev_open: cfr is disabled
+1746:[   15.791853] [kworke][0x1a131aa7][10:19:06.194219] peach_v2: [77:I:REGULATORY] reg_set_band: same band 7
+1747:[   15.791859] [kworke][0x1a131b17][10:19:06.194224] peach_v2: [77:I:HDD] hdd_intersect_igmp_offload_setting: fw cap to handle igmp 1 igmp_offload_enable ini 1
+1748:[   15.792063] [kworke][0x1a132a6c][10:19:06.194429] peach_v2: [77:I:GREEN_AP] target_if_green_ap_register_egap_event_handler: Set the Enhance Green AP event handler
+1749:[   15.792347] [kworke][0x1a133fb2][10:19:06.194713] peach_v2: [117:I:WMA] wma_wait_for_ready_event: FW ready event received
+1750:[   15.792356] [kworke][0x1a13406b][10:19:06.194722] peach_v2: [117:W:HDD] hdd_tx_powerboost_init: TPB: feature not enabled
+1751:[   15.792595] [kworke][0x1a13524f][10:19:06.194961] peach_v2: [117:E:HDD] hdd_sysfs_create_max_chipset_log_size_interface: max_chipset_log_size feature is disabled/no supp
+1752:[   15.794155] [kworke][0x1a13c74d][10:19:06.196521] peach_v2: [117:I:IPA] ipa_register_is_ipa_ready: IPA is ready, invoke callback
+1753:[   15.794160] [kworke][0x1a13c7bc][10:19:06.196526] peach_v2: [117:I:IPA] ipa_register_ready_cb: IPA ready callback invoked: ipa_register_ready_cb
+1754:[   15.794195] [kworke][0x1a13ca52][10:19:06.196561] peach_v2: [117:I:IPA] wlan_ipa_wdi_init: ipa_over_gsi: 1, is_smmu_enabled: 1, handle: 0
+1756:[   15.804048] [kworke][0x1a16ad40][10:19:06.206413] peach_v2: [117:I:IPA] wlan_ipa_uc_ol_init: TX buffers mapped to IPA
+1757:[   15.804138] [kworke][0x1a16b413][10:19:06.206504] peach_v2: [117:I:IPA] ipa_register_ready_cb: No. of instances added for IPA is 1
+1758:[   15.804294] [kworke][0x1a16bfc6][10:19:06.206660] peach_v2: [117:I:SYS] Creating periodic timer for OLBC UPDATE CACHE TIMEOUT
+1760:[   15.806359] [kworke][0x1a175a9b][10:19:06.208725] peach_v2: [117:I:DIRECT_BUF_RX] target_if_direct_buf_rx_register_events: DBR Handler Context 1
+1761:[   15.806907] [kworke][0x1a1783b3][10:19:06.209273] peach_v2: [117:E:WMI] send_action_oui_cmd_tlv: Invalid action id
+1762:[   15.806914] [kworke][0x1a17844b][10:19:06.209280] peach_v2: [117:E:action_oui] action_oui_send_config: Failed to send: 14
+1784:[   15.850396] [kworke][0x1a244153][10:19:06.252761] peach_v2: [117:E:fwol] ucfg_fwol_send_get_thermal_stats_cmd: Command Disabled in Ini gThermalStatsTempOffset 5 or not enabled in FW 0
+1785:[   15.850408] [kworke][0x1a24424b][10:19:06.252774] peach_v2: [117:E:OSIF] os_if_fwol_get_thermal_stats_req: Failed to send get thermal stats cmd to FW, 4
+1787:[   15.853125] [kworke][0x1a250df0][10:19:06.255489] peach_v2: [117:E:DP] dp_lpass_connect_htc_service: LPASS_DATA_MSG connect service successful
+1788:[   15.854199] cnss: CNSS and direct link share IOMMU group
+1789:[   15.858098] cnss_utils: WLAN MAC address is not set, type 0
+1790:[   15.862266] ueventd: firmware: loading 'wlan/qca_cld/peach_v2/wlan_mac.bin' for '/devices/platform/soc/1c00000.pcie/pci0000:00/0000:00:00.0/0000:01:00.0/firmware/wlan!qca_cld!peach_v2!wlan_mac.bin'
+1791:[   15.862567] ueventd: found /vendor/firmware/wlan/qca_cld/peach_v2/wlan_mac.bin for /devices/platform/soc/1c00000.pcie/pci0000:00/0000:00:00.0/0000:01:00.0/firmware/wlan!qca_cld!peach_v2!wlan_mac.bin
+1792:[   15.862648] ueventd: loading /devices/platform/soc/1c00000.pcie/pci0000:00/0000:00:00.0/0000:01:00.0/firmware/wlan!qca_cld!peach_v2!wlan_mac.bin took 0ms
+1793:[   15.863481] [kworke][0x1a2816c6][10:19:06.265847] peach_v2: [117:I:HDD] hdd_initialize_mac_address: using MAC address from wlan_mac.bin
+1799:[   15.868221] BTON: WLAN ON Asserting BT_EN to high
+1800:[   15.877844] [wlan_l][0x1a2c4be9][10:19:06.280209] peach_v2: [1418:E:HDD] nl_srv_bcast: send msg to cld80211 fails for app id 28
+1802:[   15.889561] cnss: Failed to get cooling device node
+1803:[   15.890341] cnss: Failed to get cooling device node
+1804:[   15.891673] type=1400 audit(1794478746.286:584): avc:  denied  { read } for  comm="binder:2176_2" name="u:object_r:persist_vendor_debug_wifi_prop:s0" dev="tmpfs" ino=377 scontext=u:r:hal_wifi_default:s0 tcontext=u:object_r:persist_vendor_debug_wifi_prop:s0 tclass=file permissive=0
+1805:[   15.898813] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+1806:[   15.899987] [binder][0x1a32c8aa][10:19:06.302352] peach_v2: [2227:I:HDD] wlan_hdd_state_ctrl_param_write: Wifi Turning On from UI
+1808:[   15.899993] [binder][0x1a32c92a][10:19:06.302359] peach_v2: [2227:I:HDD] wlan_hdd_state_ctrl_param_write: is_driver_loaded 1 is_driver_recovering 0
+1809:[   15.902320] [binder][0x1a3377ab][10:19:06.304685] peach_v2: [2227:E:MLO_MGR] mlo_mgr_ml_peer_exist_on_diff_ml_ctx: MLD ID 0 exists with mac a4:ff:9f:**:**:15
+1812:[   15.905549] [binder][0x1a3469d9][10:19:06.307914] peach_v2: [2227:E:TWT] wlan_twt_is_setup_done: Peer object not found 00:00:00:**:**:00
+1814:[   15.907330] [binder][0x1a34ef6d][10:19:06.309696] peach_v2: [2227:E:HDD] wlan_hdd_set_tx_power_feature: WMI_SERVICE_TX_POWER_LIMIT is not enabled
+1815:[   15.907458] [binder][0x1a34f90c][10:19:06.309824] peach_v2: [2227:I:HDD] __wlan_hdd_cfg80211_get_logger_supp_feature: Ring buffer disable
+1816:[   15.915466] [binder][0x1a3751a9][10:19:06.317832] peach_v2: [2227:I:HDD] __wlan_hdd_cfg80211_get_logger_supp_feature: Ring buffer disable
+1823:[   15.938677] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+1824:[   15.939065] [binder][0x1a3e3b8a][10:19:06.341430] peach_v2: [2227:I:HDD] __wlan_hdd_cfg80211_get_logger_supp_feature: Ring buffer disable
+1825:[   15.944330] [binder][0x1a3fc66f][10:19:06.346696] peach_v2: [7452:I:HDD] __wlan_hdd_cfg80211_get_logger_supp_feature: Ring buffer disable
+1826:[   15.948513] [binder][0x1a410010][10:19:06.350877] peach_v2: [7452:E:HDD] hdd_convert_nl80211_to_reg_band_mask: band: 2 not supported
+1832:[   15.953856] cnss-daemon: index of next store file : 2
+1833:[   15.956706] cnss-daemon: cnss_genl_save_file: saved data to file: /data/vendor/wlan_logs/heap_current.bin size: 145728
+1834:[   15.957931] cnss-daemon: index of next store file : 1
+1835:[   15.958125] cnss-daemon: cnss_genl_save_file: saved data to file: /data/vendor/wlan_logs/arena_current.bin size: 1332
+1836:[   15.986644] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+1837:[   15.987589] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+1838:[   15.988503] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+1839:[   15.992340] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Since 'android.hardware.wifi.supplicant.ISupplicant/default' could not be found trying to start it as a lazy AIDL service. (if it's not configured to be a lazy service, it may be stuck starting or still starting).
+1840:[   15.992392] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Trying to trace 'android.hardware.wifi.supplicant.ISupplicant/default'.
+1842:[   15.997278] init: Created socket '/dev/socket/wpa_wlan0', mode 660, user 1010, group 1010
+1846:[   16.005715] init: Control message: Processed ctl.interface_start for 'aidl/android.hardware.wifi.supplicant.ISupplicant/default' from pid: 1112 (/system/bin/servicemanager)
+1851:[   16.006338] init: Service interfaces: aidl/android.hardware.wifi.supplicant.ISupplicant/default, aidl/vendor.qti.hardware.wifi.supplicant.ISupplicantVendor/default
+1853:[   16.006347] init: Control message: Processed ctl.interface_trace for 'aidl/android.hardware.wifi.supplicant.ISupplicant/default' from pid: 1112 (/system/bin/servicemanager)
+1855:[   16.035546] servicemanager: Caller(pid=8544,uid=1010,sid=u:r:hal_wifi_supplicant_default:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+1856:[   16.036285] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9962e350) with descriptor: '(not cached)'
+1858:[   16.046580] servicemanager: Caller(pid=8544,uid=1010,sid=u:r:hal_wifi_supplicant_default:s0) Found vendor.qti.hardware.wifi.supplicant.ISupplicantVendor/default in device VINTF manifest.
+1865:[   16.054563] [wpa_su][0x1a6011fa][10:19:06.456929] peach_v2: [8544:E:HDD] wlan_hdd_set_tx_power_feature: WMI_SERVICE_TX_POWER_LIMIT is not enabled
+1866:[   16.062527] [wpa_su][0x1a626744][10:19:06.464893] peach_v2: [8544:E:HDD] hdd_config_power: power attr and opm attr is null
+1867:[   16.062534] [wpa_su][0x1a6267cf][10:19:06.464901] peach_v2: [8544:E:HDD] hdd_set_channel_width: [non-MLO] CHANNEL_WIDTH ATTR is NULL
+1869:[   16.072883] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+1870:[   16.089118] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+1871:[   16.089432] [binder][0x1a6a491f][10:19:06.491798] peach_v2: [7452:I:HDD] __wlan_hdd_cfg80211_get_logger_supp_feature: Ring buffer disable
+1872:[   16.090435] [binder][0x1a6a9441][10:19:06.492800] peach_v2: [7452:E:HDD] hdd_convert_nl80211_to_reg_band_mask: band: 2 not supported
+1887:[   16.108026] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+1888:[   16.114134] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+1891:[   16.120707] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9962e610) with descriptor: '(not cached)'
+2023:[   17.159158] type=1400 audit(1794478742.737:596): avc:  denied  { ioctl } for  comm="1.ui" path="/dev/xr_fbt" dev="tmpfs" ino=1062 ioctlcmd=0x780c scontext=u:r:platform_app_36:s0:c512,c768 tcontext=u:object_r:xr_fbt_device:s0 tclass=chr_file permissive=0 app=com.miui.home
+2031:[   17.204524] [kworke][0x1bb0f8fa][10:19:02.789639] peach_v2: [5766:I:PMO] pmo_core_enable_wow_in_fw: drv wow is enabled
+2036:[   17.211828] [irq][0x1bb31c9e][10:19:02.796941] peach_v2: [0:F:HIF] hif_wake_interrupt_handler: wake interrupt received on irq 362
+2037:[   17.211839] [flowtrack]: powerinsight_wifi_wake_interrupt: not handle because screen on irq=362
+2052:[   17.243024] [kworke][0x1bbc4081][10:19:02.828139] peach_v2: [5766:I:PMO] pmo_core_psoc_send_host_wakeup_ind_to_fw: Host wakeup indication sent to fw
+2062:[   17.399510] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99617900) with descriptor: '(not cached)'
+2101:[   17.868536] [binder][0x1c7381dc][10:19:03.453651] peach_v2: [8484:E:HDD] wlan_hdd_set_tx_power_feature: WMI_SERVICE_TX_POWER_LIMIT is not enabled
+2118:[   18.313682] [kworke][0x1cf5ebde][10:19:03.898797] peach_v2: [5766:I:PMO] pmo_core_enable_wow_in_fw: drv wow is enabled
+2133:[   18.453864] type=1400 audit(1794478744.029:614): avc:  denied  { read } for  comm="iaomi.bluetooth" name="u:object_r:vendor_wlan_chip_prop:s0" dev="tmpfs" ino=723 scontext=u:r:bluetooth:s0 tcontext=u:object_r:vendor_wlan_chip_prop:s0 tclass=file permissive=0
+2281:[   22.649924] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99630b30) with descriptor: '(not cached)'
+2314:[   22.976804] [wpa_su][0x224c11f3][10:19:13.180695] peach_v2: [8544:E:HDD] hdd_config_power: power attr and opm attr is null
+2315:[   22.976817] [wpa_su][0x224c12fc][10:19:13.180709] peach_v2: [8544:E:HDD] hdd_set_channel_width: [non-MLO] CHANNEL_WIDTH ATTR is NULL
+2316:[   22.978267] [kworke][0x224c7f55][10:19:13.182153] peach_v2: [1061:I:PMO] pmo_core_psoc_send_host_wakeup_ind_to_fw: Host wakeup indication sent to fw
+2352:[   23.368841] type=1400 audit(1794478753.570:660): avc:  denied  { open } for  comm="BootAnimation" path="/dev/__properties__/u:object_r:vendor_audio_prop:s0" dev="tmpfs" ino=500 scontext=u:r:bootanim:s0 tcontext=u:object_r:vendor_audio_prop:s0 tclass=file permissive=0
+2363:[   23.383803] type=1400 audit(1794478753.582:661): avc:  denied  { open } for  comm="BackBootAnimati" path="/dev/__properties__/u:object_r:vendor_audio_prop:s0" dev="tmpfs" ino=500 scontext=u:r:bootanim:s0 tcontext=u:object_r:vendor_audio_prop:s0 tclass=file permissive=0
+2485:[   24.039332] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+2486:[   24.048395] [kworke][0x23860340][10:19:14.252286] peach_v2: [1061:I:PMO] pmo_core_enable_wow_in_fw: drv wow is enabled
+2487:[   24.049680] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+2490:[   24.052546] [binder][0x23873aa7][10:19:14.256438] peach_v2: [2227:E:OSIF] wlan_hdd_set_station_stats_request_pending: peer is null
+2514:[   24.159894] type=1400 audit(1794478754.358:664): avc:  denied  { read } for  comm="WcnsCloud" name="u:object_r:vendor_performance_disable_wlan_logs:s0" dev="tmpfs" ino=638 scontext=u:r:system_server:s0 tcontext=u:object_r:vendor_performance_disable_wlan_logs:s0 tclass=file permissive=0
+2517:[   24.187055] [kworke][0x23aea2bd][10:19:14.390945] peach_v2: [733:I:PMO] pmo_core_psoc_send_host_wakeup_ind_to_fw: Host wakeup indication sent to fw
+2535:[   24.251236] [schedu][0x23c1705f][10:19:14.455127] peach_v2: [8303:I:OSIF] scan start scan id 40961
+2600:[   24.382659] [binder][0x23e7f040][10:19:14.586539] peach_v2: [2227:I:HDD] __wlan_hdd_cfg80211_get_logger_supp_feature: Ring buffer disable
+2602:[   24.387979] [binder][0x23e9800f][10:19:14.591870] peach_v2: [2227:E:DP] dp_telemetry_init: stats not supported in device mode: 16
+2603:[   24.388055] [binder][0x23e985cd][10:19:14.591946] peach_v2: [2227:E:WMA] wma_vdev_set_cck_param: invalid index 5
+2604:[   24.388111] [binder][0x23e98a03][10:19:14.592002] peach_v2: [2227:E:PMO] pmo_register_wow_wakeup_events: Skipping wake event configuration for vdev_opmode 16
+2646:[   24.497850] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+2665:[   24.522808] [binder][0x2411004a][10:19:14.726699] peach_v2: [2227:I:OSIF] osif_cm_disconnect_sync: vdevid-2: Received Disconnect reason:65528 
+2666:[   24.522819] [binder][0x2411010d][10:19:14.726710] peach_v2: [2227:E:HDD] hdd_sta_disconnect_and_cleanup: STA disconnect failed
+2667:[   24.522833] [schedu][0x2411021e][10:19:14.726724] peach_v2: [8303:I:OSIF] vdev 0, scan id 40961 type COMPLETED(1) reason COMPLETED(1) scan found 6 bss
+2668:[   24.523092] [schedu][0x24111596][10:19:14.726983] peach_v2: [8303:E:DP] dp_tx_flow_pool_unmap_handler: flow pool id: 2 is inactive, ignore unmap
+2669:[   24.523226] [schedu][0x24111f9e][10:19:14.727117] peach_v2: [8303:E:DP] dp_telemetry_deinit: stats not supported in device mode: 16
+2673:[   24.543476] [binder][0x24170e31][10:19:14.747365] peach_v2: [2227:I:HDD] vdev 2 destroyed successfully
+2674:[   24.543748] [flowtrack]: NETDEV_DOWN: wifi-aware0 - clearing flow entries
+2691:[   24.587901] Enabling WiFi
+2692:[   24.587907] [cnd][0x242412ba][10:19:14.791799] peach_v2: [11102:I:HDD] wlan_hdd_state_ctrl_param_write: is_driver_loaded 1 is_driver_recovering 0
+2693:[   24.587919] [cnd][0x242413a0][10:19:14.791811] peach_v2: [11102:E:HDD] wlan_hdd_state_ctrl_param_write: WiFi is already enabled
+2716:[   24.621501] servicemanager: Caller(pid=2952,uid=1000,sid=u:r:vendor_cnd:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+2726:[   24.638300] [schedu][0x2432d62b][10:19:14.842191] peach_v2: [8303:I:OSIF] scan start scan id 40962
+2730:[   24.644762] [binder][0x2434badf][10:19:14.848654] peach_v2: [2227:E:OSIF] wlan_hdd_set_station_stats_request_pending: peer is null
+2754:[   24.665005] [binder][0x243aa8ee][10:19:14.868895] peach_v2: [2227:I:HDD] __wlan_hdd_cfg80211_get_logger_supp_feature: Ring buffer disable
+2950:[   25.058098] [binder][0x24add2fd][10:19:15.261989] peach_v2: [2227:E:DP] dp_tx_flow_pool_unmap_handler: flow pool id: 0 is inactive, ignore unmap
+2951:[   25.064156] [binder][0x24af995b][10:19:15.268047] peach_v2: [2227:E:DP] dp_tx_flow_pool_unmap_handler: flow pool id: 1 is inactive, ignore unmap
+2952:[   25.075111] [schedu][0x24b2cef1][10:19:15.279001] peach_v2: [8303:I:OSIF] vdev 0, scan id 40962 type COMPLETED(1) reason CANCELLED(2) scan found 10 bss
+2955:[   25.095174] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9962aba0) with descriptor: '(not cached)'
+2958:[   25.132899] [wpa_su][0x24c3bd0f][10:19:15.336790] peach_v2: [8544:E:HDD] hdd_config_power: power attr and opm attr is null
+2959:[   25.132915] [wpa_su][0x24c3be56][10:19:15.336807] peach_v2: [8544:E:HDD] hdd_set_channel_width: [non-MLO] CHANNEL_WIDTH ATTR is NULL
+2960:[   25.133729] [wpa_su][0x24c3fb50][10:19:15.337620] peach_v2: [8544:E:CFR] ucfg_cfr_send_stop: pdev is NULL
+2961:[   25.133867] [wpa_su][0x24c405aa][10:19:15.337758] peach_v2: [8544:I:POLICY_MGR] wlan_policy_mgr_get_ll_lt_sap_vdev_id: Get ll lt sap vdev from vdev list, as its not yet added in connection table
+2962:[   25.144969] [schedu][0x24c74649][10:19:15.348859] peach_v2: [8303:I:CMN_MLME] vdev 0 cm_id 0xc000001: Connecting to 88888888 90:01:17:**:**:dc rssi -25 freq 5180 phymode 29 akm 0x2 uc 0x8 mc 0x8, CC: CN 
+2963:[   25.145449] [schedu][0x24c76a48][10:19:15.349339] peach_v2: [8303:I:WMI] vdev_start_add_mlo_params: mlo_flags 0x0 emlsr_support 0 link id 0xf mlo_link_add 0 start_as_active 0
+2964:[   25.145459] [schedu][0x24c76b1c][10:19:15.349350] peach_v2: [8303:I:WMI] send_vdev_start_cmd_tlv: vdev_id 0 freq 5180 chanmode 20 ch_info: 0x14 is_dfs 0 beacon interval 100 dtim 0 center_chan 5210 center_freq2 5250 reg_info_1: 0x180000 reg_info_2: 0x1800, req->max_txpow: 0x18 Tx SS 2, Rx SS 2, ldpc_rx: 0, cac 0, regd 4, HE ops: 0req->dis_hw_ack: 0 target_tsf_us_lo 0l target_tsf_us_hi 0l
+2965:[   25.145467] [schedu][0x24c76bac][10:19:15.349358] peach_v2: [8303:I:WMI] vdev_start_cmd_fill_11be: EHT ops: 0 puncture_bitmap 0 wmi cmd puncture bitmap ffffffff
+2970:[   25.205550] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9962aba0) with descriptor: '(not cached)'
+2987:[   25.318909] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99631210) with descriptor: '(not cached)'
+2990:[   25.319727] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99630030) with descriptor: '(not cached)'
+2994:[   25.338552] [schedu][0x24fffd15][10:19:15.542443] peach_v2: [8303:E:REGULATORY] reg_check_if_6g_pwr_type_supp_for_chan: 6 GHz power type = 6 not supported for 6 GHz channel idx = 1
+2999:[   25.362943] [schedu][0x25072257][10:19:15.566834] peach_v2: [8303:I:PE] Auth TX: vdev 0 seq 1 seq num 2049 status 0 WEP 0 to 90:01:17:**:**:dc
+3000:[   25.366859] [schedu][0x25084807][10:19:15.570749] peach_v2: [8303:I:PE] Auth TX: success (0)
+3001:[   25.371047] [schedu][0x25098231][10:19:15.574938] peach_v2: [8303:I:PE] Auth RX: vdev 0 sys role 2 lim_state 5 from 90:01:17:**:**:dc rssi -28 auth_alg 0 seq 2630
+3002:[   25.371495] [schedu][0x2509a3d4][10:19:15.575387] peach_v2: [8303:I:PE] Assoc req TX: vdev 0 to 90:01:17:**:**:dc seq num 2050
+3003:[   25.374298] [schedu][0x250a7537][10:19:15.578179] peach_v2: [8303:I:PE] Assoc req TX: success (0)
+3005:[   25.379227] [schedu][0x250be7ae][10:19:15.583118] peach_v2: [8303:I:PE] Assoc rsp RX: subtype 0 vdev 0 sys role 2 lim state 10 rssi -28 from 90:01:17:**:**:dc
+3006:[   25.379558] [schedu][0x250c0083][10:19:15.583449] peach_v2: [8303:E:PE] lim_extract_msd_caps: mlo peer ctx is null
+3007:[   25.379567] [schedu][0x250c0138][10:19:15.583459] peach_v2: [8303:E:PE] lim_extract_ext_mld_caps: mlo peer ctx is null
+3008:[   25.385377] [schedu][0x250db4ee][10:19:15.589268] peach_v2: [8303:I:CMN_MLME] vdev_mgr_up_param_update: trans BSSID 00:00:00:**:**:00 non-trans BSSID 00:00:00:**:**:00 profile_idx 0, profile_num 0
+3009:[   25.385439] [schedu][0x250db994][10:19:15.589330] peach_v2: [8303:E:CMN_MLME] mlme_sr_update: Spatial Reuse disabled for vdev_id: 0
+3010:[   25.385472] [schedu][0x250dbc0b][10:19:15.589363] peach_v2: [8303:E:MLO_MGR] mlo_mgr_update_link_status_code: Link info not found for link id 255
+3011:[   25.386028] [schedu][0x250de5c4][10:19:15.589919] peach_v2: [8303:I:CMN_MLME] cm_roam_switch_to_init: dual_sta_roam_active:1, sta concurrency on different mac:0, state:0
+3012:[   25.386105] [schedu][0x250deb86][10:19:15.589996] peach_v2: [8303:I:OSIF] wlan0(vdevid-0): 2e:d4:db:**:**:09 Connect with 90:01:17:**:**:dc "88888888" is SUCCESS, freq 5180 cmid 0xc000001 
+3013:[   25.386118] [schedu][0x250dec86][10:19:15.590009] peach_v2: [8303:E:HDD] __hdd_start_tsf_sync: Host Target sync has not initialized
+3014:[   25.386875] [schedu][0x250e254c][10:19:15.590766] peach_v2: [8303:I:QDF] EAPOL-1 RX: SA:90:01:17:**:**:dc DA:2e:d4:db:**:**:09
+3015:[   25.388580] [schedu][0x250ea527][10:19:15.592471] peach_v2: [8303:I:POLICY_MGR] wlan_policy_mgr_get_ll_lt_sap_vdev_id: Get ll lt sap vdev from vdev list, as its not yet added in connection table
+3016:[   25.388930] [schedu][0x250ebf6c][10:19:15.592821] peach_v2: [8303:E:tdls] tdls_set_tdls_offchannelmode: vdev:0 TDLS Off-Channel is not enabled. current_mode:3
+3019:[   25.410058] [soft_i][0x2514eedf][10:19:15.613934] peach_v2: [0:I:QDF] EAPOL-2 TX: SA:2e:d4:db:**:**:09 DA:90:01:17:**:**:dc msdu_id:0 status: succ
+3020:[   25.414900] [soft_i][0x25165b16][10:19:15.618790] peach_v2: [0:I:QDF] EAPOL-3 RX: SA:90:01:17:**:**:dc DA:2e:d4:db:**:**:09
+3022:[   25.421456] [soft_i][0x251846db][10:19:15.625347] peach_v2: [0:I:QDF] EAPOL-4 TX: SA:2e:d4:db:**:**:09 DA:90:01:17:**:**:dc msdu_id:0 status: succ
+3024:[   25.421800] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9962aba0) with descriptor: '(not cached)'
+3028:[   25.447955] [schedu][0x25200a52][10:19:15.651847] peach_v2: [8303:I:WMI] wmi_fill_rso_tlvs: RSO_CFG: vdev:0 pmk_len = 32 pmksa caching:1 OKC:1 sae_same_pmk:0 key_mgmt_offload:1
+3029:[   25.448132] [ipa_lo][0x25201785][10:19:15.652023] peach_v2: [8318:E:HDD] nl_srv_bcast: send msg to cld80211 fails for app id 30
+3030:[   25.448156] [schedu][0x2520195a][10:19:15.652047] peach_v2: [8303:E:IPA] wlan_ipa_setup_iface: net:0000000000000000 mode:0 MAC:90:01:17:**:**:dc id:0
+3031:[   25.448216] [schedu][0x25201de5][10:19:15.652108] peach_v2: [8303:I:IPA] wlan_ipa_uc_offload_enable_disable: offload_type=1, session_id=0, enable=1
+3032:[   25.449895] [schedu][0x25209bcd][10:19:15.653786] peach_v2: [8303:I:IPA] wlan_ipa_uc_enable_pipes: opt_dp: enable pipes. Do not enable autonomy
+3033:[   25.449971] ipa ipa_send_msg:522 Opt data path enabled, ignore message type 8
+3036:[   25.469287] [wpa_su][0x25264a25][10:19:15.673178] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 0 nss 1 mcs 3 rate_flags 0 flags 0
+3067:[   25.658724] [wpa_su][0x255dc9f8][10:19:15.862615] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 0 nss 1 mcs 3 rate_flags 0 flags 0
+3079:[   25.928057] type=1400 audit(1794478756.126:705): avc:  denied  { read } for  comm="m.miui.weather2" name="max_map_count" dev="proc" ino=97995 scontext=u:r:untrusted_app_34:s0:c44,c257,c512,c768 tcontext=u:object_r:proc_max_map_count:s0 tclass=file permissive=0 app=com.miui.weather2
+3083:[   26.004748] [binder][0x25c329c5][10:19:16.208639] peach_v2: [2227:E:HDD] hdd_config_power: power attr and opm attr is null
+3084:[   26.004763] [binder][0x25c32ae2][10:19:16.208654] peach_v2: [2227:E:HDD] hdd_set_channel_width: [non-MLO] CHANNEL_WIDTH ATTR is NULL
+3086:[   26.089486] [soft_i][0x25dbfcf9][10:19:16.293375] peach_v2: [0:I:QDF] DHCP-R TX: SA:2e:d4:db:**:**:09 DA:ff:ff:ff:**:**:ff msdu_id:1 status: succ
+3087:[   26.100681] [dp_rx_][0x25df4481][10:19:16.304569] peach_v2: [8374:I:QDF] DHCP-R RX: SA:2e:d4:db:**:**:09 DA:ff:ff:ff:**:**:ff
+3096:[   26.128440] [dp_rx_][0x25e76680][10:19:16.332329] peach_v2: [8379:I:QDF] DHCP-A RX: SA:90:01:17:**:**:d2 DA:2e:d4:db:**:**:09
+3100:[   26.152936] type=1400 audit(1794478756.350:706): avc:  denied  { ioctl } for  comm="1.ui" path="/dev/xr_fbt" dev="tmpfs" ino=1062 ioctlcmd=0x780c scontext=u:r:untrusted_app_34:s0:c44,c257,c512,c768 tcontext=u:object_r:xr_fbt_device:s0 tclass=chr_file permissive=0 app=com.miui.weather2
+3101:[   26.154775] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.IWifi/default in device VINTF manifest.
+3102:[   26.155482] [binder][0x25ef52dc][10:19:16.359374] peach_v2: [7452:I:HDD] __wlan_hdd_cfg80211_get_logger_supp_feature: Ring buffer disable
+3103:[   26.156814] servicemanager: Caller(pid=4662,uid=1000,sid=u:r:system_server:s0) Found android.hardware.wifi.supplicant.ISupplicant/default in device VINTF manifest.
+3104:[   26.160312] [wpa_su][0x25f0bd24][10:19:16.364204] peach_v2: [8544:E:HDD] wlan_hdd_set_tx_power_feature: WMI_SERVICE_TX_POWER_LIMIT is not enabled
+3105:[   26.164691] [wpa_su][0x25f20592][10:19:16.368583] peach_v2: [8544:E:DP] dp_telemetry_init: stats not supported in device mode: 7
+3106:[   26.164715] [wpa_su][0x25f2075c][10:19:16.368607] peach_v2: [8544:E:WMA] wma_vdev_set_cck_param: invalid index 5
+3107:[   26.164757] [wpa_su][0x25f20a84][10:19:16.368649] peach_v2: [8544:E:DP] dp_peer_setup_be: Unable to dp peer setup
+3108:[   26.167637] [wpa_su][0x25f2e269][10:19:16.371528] peach_v2: [8544:I:OSIF] osif_cm_disconnect_sync: vdevid-2: Received Disconnect reason:65528 
+3109:[   26.167645] [wpa_su][0x25f2e319][10:19:16.371537] peach_v2: [8544:E:HDD] hdd_sta_disconnect_and_cleanup: STA disconnect failed
+3110:[   26.167997] [soft_i][0x25f2fd78][10:19:16.371889] peach_v2: [0:F:DP] dp_peer_update_state: Invalid state shift from 1 to 5 peer a6:ff:9f:**:**:15
+3112:[   26.196773] [soft_i][0x25fb6b89][10:19:16.400663] peach_v2: [0:I:TXRX] HTT_T2H_MSG_TYPE_PEER_UNMAP msg for peer id 9 vdev id 2 n
+3113:[   26.196785] [soft_i][0x25fb6c84][10:19:16.400676] peach_v2: [0:E:DP] dp_rx_peer_unmap_handler: Received unmap event for invalid peer_id 9
+3114:[   26.197295] [schedu][0x25fb92c8][10:19:16.401186] peach_v2: [8303:E:DP] dp_tx_flow_pool_unmap_handler: flow pool id: 2 is inactive, ignore unmap
+3115:[   26.197955] [schedu][0x25fbc451][10:19:16.401846] peach_v2: [8303:E:DP] dp_telemetry_deinit: stats not supported in device mode: 7
+3116:[   26.209360] [wpa_su][0x25ff1b97][10:19:16.413250] peach_v2: [8544:I:HDD] vdev 2 destroyed successfully
+3122:[   26.211760] [wpa_su][0x25ffcfb0][10:19:16.415651] peach_v2: [8544:E:DP] dp_get_vdev_priv_obj: vdev is null
+3126:[   26.212349] [flowtrack]: reset_down_dev_flag: Sent wlan0 due to p2p0 down device
+3127:[   26.215534] [wpa_su][0x2600eaba][10:19:16.419425] peach_v2: [8544:E:DP] dp_telemetry_init: stats not supported in device mode: 7
+3128:[   26.215608] [wpa_su][0x2600f044][10:19:16.419499] peach_v2: [8544:E:WMA] wma_vdev_set_cck_param: invalid index 5
+3129:[   26.215715] [wpa_su][0x2600f84e][10:19:16.419606] peach_v2: [8544:E:DP] dp_peer_setup_be: Unable to dp peer setup
+3130:[   26.223181] [wpa_su][0x2603283a][10:19:16.427072] peach_v2: [8544:E:HDD] hdd_set_channel_width: [non-MLO] CHANNEL_WIDTH ATTR is NULL
+3137:[   26.578455] type=1400 audit(1794478756.762:708): avc:  denied  { write } for  comm="PhoneWorkThread" name="mi_qmi_trace" dev="proc" ino=4026532199 scontext=u:r:radio:s0 tcontext=u:object_r:proc:s0 tclass=file permissive=0
+3138:[   26.578539] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99630030) with descriptor: '(not cached)'
+3140:[   26.674966] [wpa_su][0x2687841b][10:19:16.878857] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 0 nss 1 mcs 3 rate_flags 0 flags 0
+3143:[   26.763973] [schedu][0x26a197aa][10:19:16.967864] peach_v2: [8303:I:CMN_MLME] [10:19:16.964000] [ROAM_TRIGGER]: VDEV[0] Reason: "BACKGROUND SCAN" 
+3144:[   26.764030] [schedu][0x26a19beb][10:19:16.967921] peach_v2: [8303:I:CMN_MLME] [10:19:16.964000] [ROAM_SCAN]: VDEV[0] Scan_type: NO SCAN  
+3145:[   26.764034] [schedu][0x26a19c3d][10:19:16.967925] peach_v2: [8303:I:CMN_MLME] ============================================================================================================================
+3146:[   26.764040] [schedu][0x26a19cac][10:19:16.967931] peach_v2: [8303:I:CMN_MLME]      AP BSSID           TSTAMP       CH   TY  ETP  RSSI/SCR CU%/SCR TOT_SCR  BL_RSN BL_SRC    BL_TSTAMP       BL_TIMEOUT(ms)
+3147:[   26.764042] [schedu][0x26a19ce5][10:19:16.967934] peach_v2: [8303:I:CMN_MLME] ============================================================================================================================
+3148:[   26.764048] [schedu][0x26a19d51][10:19:16.967940] peach_v2: [8303:I:CMN_MLME] 90:01:17:**:**:dc [10:19:16.964000] 5180 P_AP    0  29/2000 -1/1000  6441       0       0 [00:00:00.000000]         0
+3149:[   26.764132] [schedu][0x26a1a39e][10:19:16.968024] peach_v2: [8303:I:CMN_MLME] [10:19:16.964000] [ROAM_RESULT]: VDEV[0] Reason: CURRENT AP STILL OK
+3150:[   26.768194] [schedu][0x26a2d439][10:19:16.972085] peach_v2: [8303:I:CMN_MLME] [ROAM INIT INFO]: VDEV[0], roam_full_scan_count: 0, rssi_th: -72, cu_th: 0, fw_cancel_timer_bitmap: 0
+3151:[   26.800295] [wpa_su][0x26ac3bcc][10:19:17.004186] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 9 rate_flags 800 flags 800
+3152:[   26.802240] [wpa_su][0x26accdb0][10:19:17.006131] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 9 rate_flags 800 flags 800
+3153:[   26.807678] [wpa_su][0x26ae6581][10:19:17.011569] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 9 rate_flags 800 flags 800
+3154:[   26.810483] [binder][0x26af37e7][10:19:17.014374] peach_v2: [7452:E:HDD] hdd_config_power: power attr and opm attr is null
+3155:[   26.810498] [binder][0x26af390b][10:19:17.014390] peach_v2: [7452:E:HDD] hdd_set_channel_width: [non-MLO] CHANNEL_WIDTH ATTR is NULL
+3156:[   26.812923] [wpa_su][0x26afeee4][10:19:17.016814] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 0 nss 1 mcs 3 rate_flags 0 flags 0
+3157:[   26.847341] [wpa_su][0x26ba044f][10:19:17.051233] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 10 rate_flags 800 flags 800
+3161:[   26.867609] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99630030) with descriptor: '(not cached)'
+3163:[   26.867800] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f996321e0) with descriptor: '(not cached)'
+3185:[   27.226615] [wpa_su][0x272921dc][10:19:17.430507] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 9 rate_flags 800 flags 800
+3186:[   27.226862] [wpa_su][0x2729345d][10:19:17.430754] peach_v2: [8544:E:HDD] hdd_set_channel_width: [non-MLO] CHANNEL_WIDTH ATTR is NULL
+3188:[   27.237471] miscore:link add,if_index=24,name=wlan0,num=2,index=1
+3189:[   27.281069] [wpa_su][0x273915d0][10:19:17.484960] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 9 rate_flags 800 flags 800
+3190:[   27.285129] [wpa_su][0x273a4553][10:19:17.489007] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 9 rate_flags 800 flags 800
+3197:[   27.399660] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9962aba0) with descriptor: '(not cached)'
+3199:[   27.400242] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99607c00) with descriptor: '(not cached)'
+3201:[   27.400515] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f9960b040) with descriptor: '(not cached)'
+3230:[   27.992447] type=1400 audit(1794478758.190:710): avc:  denied  { write } for  comm="PhoneWorkThread" name="mi_qmi_trace" dev="proc" ino=4026532199 scontext=u:r:radio:s0 tcontext=u:object_r:proc:s0 tclass=file permissive=0
+3254:[   28.492650] [kworke][0x289c0a54][10:19:18.696540] peach_v2: [145:I:WMA] wma_sar_event_handler: handle:0000000000000000 event:0000000000000000 len:16
+3272:[   29.301684] type=1400 audit(1794478759.502:712): avc:  denied  { write } for  comm="PhoneWorkThread" name="mi_qmi_trace" dev="proc" ino=4026532199 scontext=u:r:radio:s0 tcontext=u:object_r:proc:s0 tclass=file permissive=0
+3305:[   29.703657] [wpa_su][0x29fed3f6][10:19:19.907548] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 10 rate_flags 800 flags 800
+3336:[   32.717217] [wpa_su][0x2d71b4fa][10:19:22.921109] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 8 rate_flags 800 flags 800
+3453:[   33.812278] apexd: Deleting unused dm device com.xiaomi.wifi
+3460:[   33.828733] libbinder.BpBinder: onLastStrongRef automatically unlinking death recipients for binder (0xb400006f99604d40) with descriptor: '(not cached)'
+3538:[   35.728805] [wpa_su][0x30e4020a][10:19:25.932696] peach_v2: [8544:E:HDD] hdd_get_rate_flags_he: invalid params rate 21618 nss 2 mcs 11
+3539:[   35.728820] [wpa_su][0x30e402fa][10:19:25.932709] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 8 rate_flags 800 flags 800
+3738:[   38.738818] [wpa_su][0x3455d917][10:19:28.942710] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 9 rate_flags 800 flags 800
+3783:[   41.524963] type=1400 audit(1794478771.726:725): avc:  denied  { getattr } for  comm="binder:1177_1" path="/dev/block/sdf7" dev="tmpfs" ino=1672 scontext=u:r:vold:s0 tcontext=u:object_r:vendor_persist_block_device:s0 tclass=blk_file permissive=0
+3784:[   41.525319] type=1400 audit(1794478771.726:726): avc:  denied  { getattr } for  comm="binder:1177_1" path="/dev/block/sda16" dev="tmpfs" ino=1213 scontext=u:r:vold:s0 tcontext=u:object_r:block_device:s0 tclass=blk_file permissive=0
+3787:[   41.528259] type=1400 audit(1794478771.726:727): avc:  denied  { getattr } for  comm="binder:1177_1" path="/dev/block/sda32" dev="tmpfs" ino=1187 scontext=u:r:vold:s0 tcontext=u:object_r:rescue_block_device:s0 tclass=blk_file permissive=0
+3788:[   41.528316] type=1400 audit(1794478771.726:728): avc:  denied  { getattr } for  comm="binder:1177_1" path="/dev/block/sdf7" dev="tmpfs" ino=1672 scontext=u:r:vold:s0 tcontext=u:object_r:vendor_persist_block_device:s0 tclass=blk_file permissive=0
+3789:[   41.528332] type=1400 audit(1794478771.726:729): avc:  denied  { getattr } for  comm="binder:1177_1" path="/dev/block/sda16" dev="tmpfs" ino=1213 scontext=u:r:vold:s0 tcontext=u:object_r:block_device:s0 tclass=blk_file permissive=0
+3790:[   41.751273] [wpa_su][0x37c86731][10:19:31.955165] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 9 rate_flags 800 flags 800
+3805:[   44.765698] [wpa_su][0x3b3b8910][10:19:34.969590] peach_v2: [8544:E:HDD] hdd_get_rate_flags_he: invalid params rate 24019 nss 2 mcs 10
+3806:[   44.765709] [wpa_su][0x3b3b89e9][10:19:34.969601] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 11 rate_flags 800 flags 800
+3816:[   47.776062] [wpa_su][0x3ead7a55][10:19:37.979953] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 11 rate_flags 800 flags 800
+3828:[   50.786877] [wpa_su][0x421f8d52][10:19:40.990767] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 11 rate_flags 800 flags 800
+3831:[   51.689026] [kworke][0x4327da8e][10:19:41.892916] peach_v2: [5766:I:PMO] pmo_core_enable_wow_in_fw: drv wow is enabled
+3833:[   52.360765] type=1400 audit(1794478782.562:734): avc:  denied  { getattr } for  comm="binder:1177_1" path="/dev/block/sdf7" dev="tmpfs" ino=1672 scontext=u:r:vold:s0 tcontext=u:object_r:vendor_persist_block_device:s0 tclass=blk_file permissive=0
+3834:[   52.361870] type=1400 audit(1794478782.562:735): avc:  denied  { getattr } for  comm="binder:1177_1" path="/dev/block/sda16" dev="tmpfs" ino=1213 scontext=u:r:vold:s0 tcontext=u:object_r:block_device:s0 tclass=blk_file permissive=0
+3835:[   52.362456] type=1400 audit(1794478782.562:736): avc:  denied  { getattr } for  comm="binder:1177_1" path="/dev/block/sda32" dev="tmpfs" ino=1187 scontext=u:r:vold:s0 tcontext=u:object_r:rescue_block_device:s0 tclass=blk_file permissive=0
+3836:[   52.364334] type=1400 audit(1794478782.566:737): avc:  denied  { getattr } for  comm="binder:1177_1" path="/dev/block/sdf7" dev="tmpfs" ino=1672 scontext=u:r:vold:s0 tcontext=u:object_r:vendor_persist_block_device:s0 tclass=blk_file permissive=0
+3837:[   52.365649] type=1400 audit(1794478782.566:738): avc:  denied  { getattr } for  comm="binder:1177_1" path="/dev/block/sda16" dev="tmpfs" ino=1213 scontext=u:r:vold:s0 tcontext=u:object_r:block_device:s0 tclass=blk_file permissive=0
+3876:[   59.841835] [irq][0x4c7c5f06][10:19:50.045723] peach_v2: [0:F:HIF] hif_wake_interrupt_handler: wake interrupt received on irq 362
+3877:[   59.841852] [flowtrack]: powerinsight_wifi_wake_interrupt: not handle because screen on irq=362
+3878:[   59.843575] [kworke][0x4c7ce1b8][10:19:50.047465] peach_v2: [1001:I:PMO] pmo_core_psoc_send_host_wakeup_ind_to_fw: Host wakeup indication sent to fw
+3879:[   59.852251] [soft_i][0x4c7f6c59][10:19:50.056140] peach_v2: [0:I:WMA] WLAN triggered wakeup: BPF_ALLOW (39), vdev: 0 (STA) : (RTPM Suspend)
+3880:[   59.852277] [flowtrack]: powerinsight_wifi_wake_reason: not handle because screen on
+3881:[   59.852369] [soft_i][0x4c7f7548][10:19:50.056259] peach_v2: [0:I:WMA] wma_wake_event_packet: Wake event packet:
+3882:[   59.852460] [soft_i][0x4c7f7c1b][10:19:50.056350] peach_v2: [0:I:WMA] wma_log_pkt_ipv6: Pkt_len: 70, src_port: 443, dst_port: 52180
+3883:[   59.852474] [flowtrack]: powerinsight_wifi_wake_data: not handle because screen on
+3884:[   59.871656] [wpa_su][0x4c851bc4][10:19:50.075546] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 11 rate_flags 800 flags 800
+3887:[   61.268988] type=1400 audit(1794478791.470:743): avc:  denied  { getattr } for  comm=73796E6320737663203139 path="/data/local/tmp/wfx/fw/WCNSS_qcom_cfg_links/WCNSS_qcom_cfg.ini" dev="dm-62" ino=1255415 scontext=u:r:adbd:s0 tcontext=u:object_r:shell_data_file:s0 tclass=lnk_file permissive=0
+3888:[   61.269249] type=1400 audit(1794478791.470:744): avc:  denied  { getattr } for  comm=73796E6320737663203139 path="/data/local/tmp/wfx/fw/WCNSS_qcom_cfg_links/wlan_mac.bin" dev="dm-62" ino=1248927 scontext=u:r:adbd:s0 tcontext=u:object_r:shell_data_file:s0 tclass=lnk_file permissive=0
+3893:[   62.888838] [wpa_su][0x4ff90a8e][10:19:53.092703] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 4 nss 2 mcs 11 rate_flags 800 flags 800
+3900:[   65.902847] [wpa_su][0x536c0f15][10:19:56.106737] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 0 nss 1 mcs 3 rate_flags 0 flags 0
+3901:[   66.926093] [kworke][0x5497d696][10:19:57.129983] peach_v2: [5766:I:PMO] pmo_core_enable_wow_in_fw: drv wow is enabled
+3902:[   67.009679] [irq][0x54b05353][10:19:57.213567] peach_v2: [0:F:HIF] hif_wake_interrupt_handler: wake interrupt received on irq 362
+3903:[   67.009701] [flowtrack]: powerinsight_wifi_wake_interrupt: not handle because screen on irq=362
+3904:[   67.011751] [kworke][0x54b0eefb][10:19:57.215642] peach_v2: [1001:I:PMO] pmo_core_psoc_send_host_wakeup_ind_to_fw: Host wakeup indication sent to fw
+3905:[   67.020510] [soft_i][0x54b37fb7][10:19:57.224399] peach_v2: [0:I:WMA] WLAN triggered wakeup: BPF_ALLOW (39), vdev: 0 (STA) : (RTPM Suspend)
+3906:[   67.020521] [flowtrack]: powerinsight_wifi_wake_reason: not handle because screen on
+3907:[   67.020771] [soft_i][0x54b3936d][10:19:57.224661] peach_v2: [0:I:WMA] wma_wake_event_packet: Wake event packet:
+3908:[   67.020865] [soft_i][0x54b39a82][10:19:57.224756] peach_v2: [0:I:WMA] wma_log_pkt_ipv6: Pkt_len: 93, src_port: 443, dst_port: 52180
+3909:[   67.020927] [flowtrack]: powerinsight_wifi_wake_data: not handle because screen on
+3910:[   67.028418] [kworke][0x54b5d0ce][10:19:57.232306] peach_v2: [116:E:HDD] nl_srv_bcast: send msg to cld80211 fails for app id 30
+3922:[   68.068372] [kworke][0x55e67d81][10:19:58.272262] peach_v2: [1001:I:PMO] pmo_core_enable_wow_in_fw: drv wow is enabled
+3931:[   69.104386] [kworke][0x571602a7][10:19:59.308278] peach_v2: [5766:I:PMO] pmo_core_psoc_send_host_wakeup_ind_to_fw: Host wakeup indication sent to fw
+3955:[   70.144972] [kworke][0x5846de78][10:20:00.348862] peach_v2: [5766:I:PMO] pmo_core_enable_wow_in_fw: drv wow is enabled
+3956:[   70.151828] [kworke][0x5848e07d][10:20:00.355716] peach_v2: [5766:E:PMO] pmo_core_enable_wow_in_fw: FW not ready to WOW reason code: 0
+3957:[   71.204867] [kworke][0x597d62a2][10:20:01.408757] peach_v2: [5766:I:PMO] pmo_core_enable_wow_in_fw: drv wow is enabled
+3969:[   74.218845] [kworke][0x5cf062f9][10:20:04.422735] peach_v2: [5766:I:PMO] pmo_core_psoc_send_host_wakeup_ind_to_fw: Host wakeup indication sent to fw
+3974:[   74.980948] [wpa_su][0x5dcfa8b2][10:20:05.184838] peach_v2: [8544:I:HDD] wlan_hdd_fill_rate_info: rx: mode 0 nss 1 mcs 3 rate_flags 0 flags 0
+3977:[   76.043440] [kworke][0x5f06ef94][10:20:06.247330] peach_v2: [5766:I:PMO] pmo_core_enable_wow_in_fw: drv wow is enabled

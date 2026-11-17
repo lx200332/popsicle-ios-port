@@ -1,0 +1,1 @@
+lspci: Unknown option 's' (see "lspci --help")

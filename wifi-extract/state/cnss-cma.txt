@@ -1,0 +1,2 @@
+cat: /sys/kernel/debug/cma/cnss_wlan_region/free: Permission denied
+base_pfn=857088 count=8192 order_per_bit=0 used=5010 free=3056 maxchunk=

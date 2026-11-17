@@ -1,0 +1,60 @@
+audio
+camera
+chip_family
+chip_id
+comp
+comp1
+cpu
+ddr
+display
+display1
+eva
+family
+feature_code
+gpu
+hw_platform
+machine
+modem
+nav
+ncluster_array_offset
+npu
+nsp
+nsubset_parts_array_offset
+num_clusters
+num_subset_parts
+pcie
+pcode
+platform_subtype
+platform_subtype_id
+platform_version
+power
+raw_package_type
+revision
+sensors
+serial_number
+sku
+slc
+soc_id
+spss
+subset_cores
+subset_parts
+subsystem
+uevent
+video
+wlan
+---
+machine=CANOE
+family=Snapdragon
+soc_id=660
+serial_number=3088335331
+platform_version=65536
+wlan                   = 0x0
+pcie                   = 0x0
+chip_id                = SM8850
+chip_family            = 0xa0
+revision               = 2.0
+sku                    = CANOE-2-AC
+pcode                  = 0x2
+raw_package_type       = 0x0
+hw_platform            = MTP
+platform_subtype       = Unknown

@@ -1,0 +1,7 @@
+== /sys/bus/mhi/devices/mhi_110e_00.01.00/
+== /sys/bus/mhi/devices/mhi_110e_00.01.00_ADSP_0/
+== /sys/bus/mhi/devices/mhi_110e_00.01.00_ADSP_1/
+== /sys/bus/mhi/devices/mhi_110e_00.01.00_ADSP_2/
+== /sys/bus/mhi/devices/mhi_110e_00.01.00_ADSP_3/
+== /sys/bus/mhi/devices/mhi_110e_00.01.00_IPCR/
+== /sys/bus/mhi/devices/mhi_110e_00.01.00_LOOPBACK/

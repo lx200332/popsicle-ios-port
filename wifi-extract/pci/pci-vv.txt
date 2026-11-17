@@ -1,0 +1,3 @@
+lspci: Unknown option 'vv' (see "lspci --help")
+=====
+lspci: Unknown option 'vv' (see "lspci --help")

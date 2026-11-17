@@ -1,0 +1,47 @@
+=== 头部 ===
+vendor     0x17cb
+device     0x110e
+command    0x0406  (mem=0 bm=0 serr=0)
+status     0x0010
+revision   0x01
+class      0x028000
+cacheline  0x00  latency 0x00  hdrtype 0x00
+subsys     0x110e:0x17cb
+
+=== BAR ===
+BAR0  0x40400000  64-bit  non-prefetch
+BAR1  unused
+BAR2  0x40300000  64-bit  non-prefetch
+BAR3  unused
+BAR4  unused
+BAR5  unused
+
+=== 能力链 ===
+0x40  id=0x01 Power Management   next=0x50
+0x50  id=0x05 MSI                next=0x70
+      MSI msgctrl=0x035b enable=1 64bit=0 pervec_mask=1 vectors=32
+      addr=0x0000000018000040
+      data=0x00441108
+0x70  id=0x10 PCI Express        next=0xb0
+      devcap=0x00008fc1 devctl=0x281f devsta=0x0010
+      lnkcap=0x00434c23 lnkctl=0x0043 lnksta=0x1011
+      -> 当前 2.5 GT/s x1，最大 8.0 GT/s x2
+0xb0  id=0x11 MSI-X              next=0x00
+      MSI-X msgctrl=0x001f enable=1 mask=0 table_size=32
+      table  BAR2 + 0x0
+      PBA    BAR2 + 0x1000
+
+=== 扩展能力（0x100 起）===
+0x100  id=0x0000 ?                      ver=1 next=0x148
+0x148  id=0x0001 AER                    ver=9 next=0x168
+      uncorr_sta=0x00000000 uncorr_mask=0x00000000 uncorr_sev=0x74007400
+      corr_sta=0x00000000 corr_mask=0x00000000 cap=0x00000000
+0x168  id=0x0001 AER                    ver=7 next=0x1f4
+      uncorr_sta=0x00000001 uncorr_mask=0x00000000 uncorr_sev=0x00000000
+      corr_sta=0x00000000 corr_mask=0x00000000 cap=0x00000000
+0x1f4  id=0x0001 AER                    ver=8 next=0x1fc
+      uncorr_sta=0x00000000 uncorr_mask=0x0001001e uncorr_sev=0x0000461f
+      corr_sta=0x40df000f corr_mask=0x00000000 cap=0x00000000
+0x1fc  id=0x0001 AER                    ver=14 next=0x000
+      uncorr_sta=0x0000461f uncorr_mask=0x40df000f uncorr_sev=0x00000000
+      corr_sta=0x00000000 corr_mask=0x00000000 cap=0x00000000

@@ -1,5 +1,10 @@
 # popsicle Wi-Fi 驱动预研（④）— 硬件事实与 XNU 移植评估
 
+> **2026-11-17 注**：本文是 2026-11 之前的预研口径，部分结论已被真机全量提取推翻或补全
+> （最典型：`amss20.bin` 的两层 ELF 结构与两段式 BHIE 投递、MSI-X 表在 `BAR2+0x0`、
+> CMA 是动态分配的 32 MiB 而非固定地址、BHI/BHIE 寄存器偏移）。
+> **寄存器级细节一律以 [`STATUS-20261117-WiFi真机数据提取与XNU适配.md`](STATUS-20261117-WiFi真机数据提取与XNU适配.md) 与 [`wifi-extract/popsicle_wifi_names.h`](wifi-extract/popsicle_wifi_names.h) 为准**，本文保留作为驱动选型（qca_cld vs ath11k vs ath12k）与早期判断的记录。
+
 > 范围：iOS 16.5 hackios 移植 · Xiaomi 17 Pro Max（SM8850/canoe, codename popsicle）
 > 证据来源：`<TOOLS>\cache\popsicle.dtb`（厂商合并 DTB）、`<DUMPS>\tiqu\02-devicetree\live-fdt.dtb`（真机 DTB）、
 > `<DUMPS>\tiqu\10-props-logs\dmesg-full.txt`（真机内核日志）、`<DUMPS>\tiqu\09-vendor-config\`（vendor 分区提取）、

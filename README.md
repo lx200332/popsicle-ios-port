@@ -29,7 +29,7 @@
 | **GPU 提交（Metal → AGX）** | ✅ `PANDORA GPU SUBMIT 1000 submissions avg 41 us`，DCVS busy 0%→17% |
 | 桌面切换不闪屏 | ✅ 深帧缓冲 `b3a8` 被 nocopy 转成 `fmt 204` |
 | SpringBoard 完全启动 / 应用可用 | ❌ 卡在 `_checkIn` → backboardd 等 `com.apple.datamigrator`；BootUI 不 dismiss |
-| WiFi（fuxi_wlan） | ⚠️ 源码已在核心里（28 步 PCIe0+MHI+BHI），首次以 `fuxiwlan=1` 上机验证中；本机 PCI ID 已从 `0x1107` 修正为 `0x110e` |
+| WiFi（fuxi_wlan） | ⚠️ 源码已在核心里（28 步 PCIe0+MHI+BHI），首次以 `fuxiwlan=1` 上机验证中；本机 PCI ID 已从 `0x1107` 修正为 `0x110e`。**真机数据已提齐、XNU 侧路线已切到 M1–M6 里程碑**，见 [`STATUS-20261117-WiFi真机数据提取与XNU适配.md`](STATUS-20261117-WiFi真机数据提取与XNU适配.md) |
 | 音频 ADSP（`pandora_adsp` / combined mdt / 功放） | ✅ 驱动与 `pas_load` 改造已编入 `loader-red3`→`red7`；固件读不到的问题已定位到 extents pin（见 §17.7） |
 | 蓝牙（`pandora_bt.c`） | 🟡 从零写出（上游零代码），已编入内核；**尚未上机验证** |
 | 基带 MSS（`pandora_modem.c`） | 🟡 从零写出 + prelink d8，已编入 `loader-red6` / `red7`；**尚未上机验证** |
@@ -46,6 +46,7 @@ dts/                     设备树（merged dtb / overlay / canoe base）
 boots/                   真机验证过的 fastboot boot 镜像（.img.gz）+ 里程碑索引
 UniXNU-popsicle/         另一条路线（UEFI + BootShim）的板级包
 tools/                   构建、FDT 合并、固件解析脚本；register-drivers.sh 登记驱动进 bsd/conf/files
+wifi-extract/            WiFi 真机提取物（PCI config 解析、DT/时钟/电源/中断快照、dmesg 摘录）+ 解析脚本
 panels/                  面板初始化序列
 popsiclePkg/             空占位（实际包在 UniXNU-popsicle/firmware 下）
 ```
@@ -79,6 +80,8 @@ popsiclePkg/             空占位（实际包在 UniXNU-popsicle/firmware 下�
 | `内核驱动-进度-20261027.md` | 内核驱动主线（19 节）：导出符号 / prelink / ADSP combined mdt / 蓝牙 / 基带 MSS / 热管理 / 显示审计 |
 | `手机实测SOP.md` | 上机操作标准流程 |
 | `触控移植笔记.md` | S3910P 触摸从 stopped 到 running |
+| `STATUS-20261117-WiFi真机数据提取与XNU适配.md` | **WiFi 最新**：真机全量提取（PCI/DT/固件/电源/时钟/中断/IOMMU）、BHI/BHIE 寄存器表、两段式固件投递、XNU 侧 M1–M6 里程碑、五个死坑 |
+| `wifi-facts.md` | WiFi 早期预研（硬件事实与驱动选型），2026-11 之前的口径，寄存器细节以 STATUS-20261117 为准 |
 
 ## 环境要点
 

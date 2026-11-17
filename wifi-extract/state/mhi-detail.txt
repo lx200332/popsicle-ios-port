@@ -1,0 +1,20 @@
+firmware
+log_level
+oem_pk_hash
+power
+serial_number
+soc_reset
+subsystem
+time
+time_async
+uevent
+wakeup
+---
+MODALIAS=mhi:mhi_110e_00.01.00
+---TIME---
+Request failed or feature unsupported
+Serial Number: 3216895231
+---OEM---
+OEMPKHASH[0]: 0x802240
+OEMPKHASH[1]: 0x20840070
+OEMPKHASH[2]: 0xae87fdfd
